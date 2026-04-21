@@ -1,0 +1,14 @@
+# Development + evaluation dependencies (includes all of base)
+# Compiled to dev.txt by:  pip-compile requirements/dev.in -o requirements/dev.txt
+
+-r base.in
+
+# Testing
+pytest>=8.0.0
+
+# Evaluation
+ragas>=0.4.0           # LLM-as-judge metrics + synthetic test generation
+datasets>=2.0.0        # pulled in by ragas; pinned here for visibility
+
+# Lock-file tooling
+pip-tools>=7.0.0

@@ -1,0 +1,191 @@
+DATA WAREHOUSE FUNDAMENTALS
+
+=== DEFINITION ===
+
+A data warehouse (DWH) is a centralized repository that stores large volumes of structured, historical data from multiple source systems. It is optimized for analytical queries (OLAP) rather than transactional workloads (OLTP). Data warehouses support business intelligence (BI), reporting, and data-driven decision-making.
+
+=== KEY CHARACTERISTICS ===
+
+The four key characteristics of a data warehouse are:
+
+1. Subject-Oriented: Organized around key business subjects such as sales, finance, customers, or products — rather than around application functions like order entry or invoicing.
+
+2. Integrated: Consolidates data from multiple heterogeneous sources (ERP, CRM, flat files, APIs). Data is cleaned, transformed, and standardized into a consistent format during the ETL/ELT process.
+
+3. Non-Volatile: Once data is loaded into the warehouse, it is not updated or deleted. Historical records are preserved to support trend analysis and time-series reporting.
+
+4. Time-Variant: Data is stored with a time dimension, allowing historical comparisons. Every record contains a timestamp or effective date range.
+
+=== ARCHITECTURE LAYERS ===
+
+A data warehouse architecture consists of five layers: Source Layer, Staging Layer, Integration Layer, Presentation Layer, and Consumption Layer.
+
+1. Source Layer: Operational databases, SaaS applications, flat files, streaming data, and external feeds that provide raw data.
+
+2. Staging Layer: A temporary area where raw data lands before transformation. Used for data cleansing and initial validation. Data here is typically truncated and reloaded with every ETL run.
+
+3. Integration Layer (Core / EDW): The central, normalized or lightly modeled store of integrated data from all sources. Often stored in 3NF (Third Normal Form) or as a Data Vault model. Serves as the single source of truth.
+
+4. Presentation Layer (Data Marts): Dimensional models (star or snowflake schemas) built on top of the integration layer for specific business domains. Optimized for end-user querying and BI tools.
+
+5. Consumption Layer: BI dashboards, reports, ad-hoc queries, data science notebooks, and APIs that consume data from the presentation layer.
+
+=== DATA MODELING APPROACHES ===
+
+Common data warehouse modeling approaches include Star Schema, Snowflake Schema, Galaxy Schema, and Data Vault.
+
+Star Schema:
+- Central fact table connected to multiple dimension tables.
+- Fact tables store measurable events (sales transactions, web clicks).
+- Dimension tables store descriptive context (date, product, customer, geography).
+- Denormalized for query performance.
+- Example: A SALES_FACT table linked to DIM_DATE, DIM_PRODUCT, DIM_CUSTOMER, DIM_STORE.
+
+Snowflake Schema:
+- Extension of star schema where dimension tables are normalized into sub-dimensions.
+- Reduces data redundancy but increases join complexity.
+- Example: DIM_PRODUCT links to a separate DIM_CATEGORY table.
+
+Galaxy Schema (Fact Constellation):
+- Multiple fact tables share common dimension tables.
+- Used when multiple business processes share the same dimensions.
+
+Data Vault:
+- Designed for scalability and auditability in large enterprise warehouses.
+- Three entity types: Hubs (business keys), Links (relationships), Satellites (attributes and history).
+- Supports parallel loading and is highly resilient to source system changes.
+
+=== FACT AND DIMENSION TABLES ===
+
+Fact Tables:
+- Store quantitative measurements (metrics/KPIs).
+- Types: Transaction facts, Snapshot facts (periodic or accumulating).
+- Contain foreign keys to dimension tables and measure columns.
+- Examples of measures: revenue, quantity_sold, page_views, cost.
+
+Dimension Tables:
+- Store descriptive attributes used to filter, group, and label facts.
+- Types: Slowly Changing Dimensions (SCD Types 0–6).
+  - SCD Type 1: Overwrite old value. No history kept.
+  - SCD Type 2: Add a new row with a surrogate key for each change. Full history preserved.
+  - SCD Type 3: Add a new column for the previous value. Limited history.
+- Degenerate Dimension: A dimension key stored in the fact table with no separate dimension table (e.g., order number).
+- Junk Dimension: Groups low-cardinality flags and indicator fields from a fact record into a single table, instead of adding many boolean or categorical flag columns directly to the fact table. This reduces fact table width and keeps the model clean. Examples include payment method flags, promotional indicators, or channel codes.
+- Role-Playing Dimension: A single dimension table used in multiple contexts (e.g., DIM_DATE used as order_date, ship_date, delivery_date).
+
+=== ETL vs ELT ===
+
+ETL (Extract, Transform, Load):
+- Data is extracted from sources, transformed in an intermediate system (ETL tool or engine), then loaded into the warehouse.
+- Traditional approach used with on-premise warehouses.
+- Tools: Informatica, Talend, SSIS, Apache Spark.
+
+ELT (Extract, Load, Transform):
+- Data is extracted and loaded raw into the warehouse first, then transformed using SQL inside the warehouse engine.
+- Preferred for cloud data warehouses due to massive compute scalability.
+- Tools: dbt (data build tool), Fivetran, Airbyte, Matillion.
+
+=== CLOUD DATA WAREHOUSES ===
+
+Amazon Redshift:
+- Columnar MPP (Massively Parallel Processing) database on AWS.
+- Supports Redshift Spectrum for querying data directly from S3.
+- Uses AQUA (Advanced Query Accelerator) for caching.
+
+Google BigQuery:
+- Serverless, pay-per-query cloud warehouse on GCP.
+- Separates compute and storage; scales automatically.
+- Supports SQL, ML (BigQuery ML), and geospatial analysis.
+
+Snowflake:
+- Multi-cloud (AWS, Azure, GCP) data platform.
+- Unique virtual warehouse compute model: scale up/down/out independently of storage.
+- Supports structured and semi-structured data (JSON, Avro, Parquet).
+- Time Travel and Fail-safe features for data recovery.
+
+Azure Synapse Analytics:
+- Combines data warehousing (dedicated SQL pools) and big data analytics (Spark pools) in a unified workspace.
+- Integrated with Azure Data Factory for orchestration.
+
+Databricks Lakehouse:
+- Combines data lake flexibility with data warehouse reliability.
+- Built on Delta Lake (ACID transactions on object storage).
+- Unified platform for SQL analytics, ML, and streaming.
+
+=== OLAP vs OLTP ===
+
+OLTP (Online Transaction Processing):
+- Optimized for write-heavy, high-concurrency transactional workloads.
+- Row-oriented storage.
+- Examples: order management, banking transactions, e-commerce checkouts.
+- Databases: PostgreSQL, MySQL, Oracle, SQL Server.
+
+OLAP (Online Analytical Processing):
+- Optimized for read-heavy, complex analytical queries over large datasets.
+- Columnar storage for efficient aggregation and compression.
+- Examples: sales reporting, financial consolidation, customer segmentation.
+- Operations: Roll-up (aggregation), Drill-down (detail), Slice, Dice, Pivot.
+
+=== DATA LAKEHOUSE ===
+
+A Data Lakehouse combines the scalability and low cost of a data lake with the reliability and SQL performance of a data warehouse.
+- Stores raw, semi-structured, and structured data in open formats (Parquet, ORC).
+- Adds ACID transactions, schema enforcement, and indexing on top of object storage.
+- Key technologies: Delta Lake (Databricks), Apache Iceberg (AWS, Dremio), Apache Hudi (Uber, AWS).
+- Eliminates the need for a separate data lake and data warehouse tier.
+
+=== PERFORMANCE OPTIMIZATION ===
+
+Partitioning:
+- Divides large tables into smaller segments based on a column (e.g., date).
+- Reduces the amount of data scanned per query (partition pruning).
+
+Clustering / Z-Ordering:
+- Physically co-locates related rows on disk.
+- Improves performance for range and equality filters on non-partition columns.
+
+Materialized Views:
+- A materialized view is a pre-computed query result stored as a physical table in the data warehouse.
+- It can be automatically or manually refreshed when the underlying data changes.
+
+Indexes:
+- In columnar warehouses, sparse indexes and zone maps (min/max per block) replace traditional B-tree indexes.
+
+Compression:
+- Columnar storage enables run-length encoding, dictionary encoding, and delta encoding to drastically reduce storage.
+
+Caching:
+- Result set caching (BigQuery, Redshift) returns instant results for repeated identical queries.
+
+=== SLOWLY CHANGING DIMENSIONS (SCD) DETAIL ===
+
+SCD Type 0: Fixed. Attributes never change (e.g., original signup date).
+SCD Type 1: Overwrite. No history. Simple but loses historical accuracy.
+SCD Type 2: New row per change. Requires surrogate key, effective_start_date, effective_end_date, is_current flag. Most common for full history tracking.
+SCD Type 3: Additional column for previous value. Tracks only one level of change.
+SCD Type 4: Mini-dimension. Rapidly changing attributes moved to a separate table.
+SCD Type 6: Hybrid of Types 1, 2, and 3. Stores both current and historical values in each row.
+
+=== DATA GOVERNANCE IN WAREHOUSES ===
+
+- Data Catalog: Metadata repository for discovering and understanding data assets (Collibra, Alation, AWS Glue Catalog).
+- Data Lineage: Tracks the origin and transformation path of data through the pipeline. It is a data governance practice that provides visibility into how data flows from source systems through transformations, supporting data quality, auditing, and access control.
+- Data Quality: Automated checks for completeness, accuracy, consistency, and timeliness (Great Expectations, dbt tests).
+- Access Control: Row-level security, column-level masking, role-based access control (RBAC).
+
+=== COMMON METRICS ===
+
+- Query Latency: Time from query submission to first result.
+- Throughput: Number of concurrent queries handled per second.
+- Data Freshness: How recently the warehouse data was updated relative to source systems.
+- Storage Utilization: Compressed vs uncompressed data size.
+- Cost per Query: Total compute cost divided by number of queries (relevant in pay-per-use cloud warehouses).
+
+=== COMMON TOOLS AND ECOSYSTEM ===
+
+Orchestration: Apache Airflow, Prefect, Dagster, dbt Cloud.
+Transformation: dbt (data build tool), Spark SQL, stored procedures.
+Ingestion: Fivetran, Airbyte, AWS Glue, Azure Data Factory, Stitch.
+BI / Visualization: Tableau, Looker (LookML), Power BI, Metabase, Superset.
+Data Quality: Great Expectations, Monte Carlo, Soda Core.
+Monitoring: Datafold, Atlan, OpenMetadata.

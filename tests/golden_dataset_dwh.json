@@ -1,0 +1,142 @@
+[
+  {
+    "id": "dwh_001",
+    "question": "What is a data warehouse?",
+    "expected_answer": "A data warehouse is a centralized repository that stores large volumes of structured, historical data from multiple source systems. It is optimized for analytical queries (OLAP) rather than transactional workloads (OLTP), and supports business intelligence, reporting, and data-driven decision-making.",
+    "topic": "definition",
+    "difficulty": "easy"
+  },
+  {
+    "id": "dwh_002",
+    "question": "What are the four key characteristics of a data warehouse?",
+    "expected_answer": "The four key characteristics are: (1) Subject-Oriented — organized around key business subjects such as sales, finance, customers, or products rather than application functions; (2) Integrated — consolidates data from multiple heterogeneous sources such as ERP, CRM, flat files, and APIs, cleaned and standardized during ETL/ELT; (3) Non-Volatile — once data is loaded it is not updated or deleted, preserving historical records for trend analysis and time-series reporting; (4) Time-Variant — data is stored with a time dimension allowing historical comparisons, with every record containing a timestamp or effective date range.",
+    "topic": "definition",
+    "difficulty": "medium"
+  },
+  {
+    "id": "dwh_003",
+    "question": "What is the difference between OLTP and OLAP?",
+    "expected_answer": "OLTP (Online Transaction Processing) is optimized for write-heavy, high-concurrency transactional workloads using row-oriented storage — examples include order management and banking. OLAP (Online Analytical Processing) is optimized for read-heavy, complex analytical queries over large datasets using columnar storage — examples include sales reporting and customer segmentation.",
+    "topic": "oltp_vs_olap",
+    "difficulty": "medium"
+  },
+  {
+    "id": "dwh_004",
+    "question": "Explain the star schema in data warehousing.",
+    "expected_answer": "A star schema has a central fact table connected to multiple dimension tables. Fact tables store measurable events such as sales transactions. Dimension tables store descriptive context such as date, product, customer, and geography. The schema is denormalized for query performance. For example, a SALES_FACT table linked to DIM_DATE, DIM_PRODUCT, DIM_CUSTOMER, and DIM_STORE.",
+    "topic": "data_modeling",
+    "difficulty": "medium"
+  },
+  {
+    "id": "dwh_005",
+    "question": "What is the difference between a star schema and a snowflake schema?",
+    "expected_answer": "A star schema has a central fact table with denormalized dimension tables for query performance. A snowflake schema extends the star schema by normalizing dimension tables into sub-dimensions, reducing data redundancy but increasing join complexity. For example, in a snowflake schema a DIM_PRODUCT table might link to a separate DIM_CATEGORY table.",
+    "topic": "data_modeling",
+    "difficulty": "medium"
+  },
+  {
+    "id": "dwh_006",
+    "question": "What is ETL and how does it differ from ELT?",
+    "expected_answer": "ETL (Extract, Transform, Load) extracts data from sources, transforms it in an intermediate system, then loads it into the warehouse. It is the traditional approach for on-premise warehouses. ELT (Extract, Load, Transform) loads raw data into the warehouse first and then transforms it using SQL inside the warehouse engine. ELT is preferred for cloud data warehouses due to massive compute scalability.",
+    "topic": "etl_elt",
+    "difficulty": "medium"
+  },
+  {
+    "id": "dwh_007",
+    "question": "What is SCD Type 2 and when should you use it?",
+    "expected_answer": "SCD Type 2 (Slowly Changing Dimension Type 2) handles changes to dimension attributes by adding a new row for each change rather than overwriting. Each row includes a surrogate key, effective_start_date, effective_end_date, and an is_current flag. It preserves full history and is the most common SCD type used when historical accuracy of dimension attributes is required for reporting.",
+    "topic": "scd",
+    "difficulty": "hard"
+  },
+  {
+    "id": "dwh_008",
+    "question": "What is a Data Vault and what are its three entity types?",
+    "expected_answer": "Data Vault is a data modeling methodology designed for scalability and auditability in large enterprise warehouses. Its three entity types are: Hubs (store business keys), Links (store relationships between hubs), and Satellites (store attributes and historical changes). Data Vault supports parallel loading and is highly resilient to source system changes.",
+    "topic": "data_modeling",
+    "difficulty": "hard"
+  },
+  {
+    "id": "dwh_009",
+    "question": "What is a data lakehouse?",
+    "expected_answer": "A data lakehouse combines the scalability and low cost of a data lake with the reliability and SQL performance of a data warehouse. It stores raw, semi-structured, and structured data in open formats like Parquet and ORC, while adding ACID transactions, schema enforcement, and indexing on top of object storage. Key technologies include Delta Lake, Apache Iceberg, and Apache Hudi.",
+    "topic": "lakehouse",
+    "difficulty": "medium"
+  },
+  {
+    "id": "dwh_010",
+    "question": "What are the five layers in a typical data warehouse architecture?",
+    "expected_answer": "The five layers are: (1) Source Layer — operational databases and external feeds; (2) Staging Layer — temporary area for raw data landing and initial validation; (3) Integration Layer — central normalized store serving as the single source of truth; (4) Presentation Layer — dimensional data marts optimized for BI tools; (5) Consumption Layer — BI dashboards, reports, and APIs that consume the data.",
+    "topic": "architecture",
+    "difficulty": "medium"
+  },
+  {
+    "id": "dwh_011",
+    "question": "What is Snowflake and what makes its architecture unique?",
+    "expected_answer": "Snowflake is a multi-cloud data platform available on AWS, Azure, and GCP. Its unique virtual warehouse compute model allows scaling compute up, down, or out independently of storage. It supports structured and semi-structured data (JSON, Avro, Parquet) and provides Time Travel and Fail-safe features for data recovery.",
+    "topic": "cloud_warehouses",
+    "difficulty": "medium"
+  },
+  {
+    "id": "dwh_012",
+    "question": "What is a degenerate dimension?",
+    "expected_answer": "A degenerate dimension is a dimension key stored directly in the fact table without a corresponding separate dimension table. It typically represents transaction identifiers such as an order number or invoice number that have no additional descriptive attributes worth storing in a separate table.",
+    "topic": "data_modeling",
+    "difficulty": "hard"
+  },
+  {
+    "id": "dwh_013",
+    "question": "What is a role-playing dimension? Give an example.",
+    "expected_answer": "A role-playing dimension is a single dimension table that is used in multiple contexts within the same fact table. For example, a DIM_DATE table can be referenced as order_date, ship_date, and delivery_date in a single orders fact table. Each reference uses an alias or view of the same underlying dimension.",
+    "topic": "data_modeling",
+    "difficulty": "hard"
+  },
+  {
+    "id": "dwh_014",
+    "question": "How does partitioning improve data warehouse query performance?",
+    "expected_answer": "Partitioning divides large tables into smaller segments based on a column, typically a date column. When a query filters on the partition column, the database performs partition pruning — scanning only the relevant partitions rather than the entire table — which significantly reduces the amount of data read and improves query performance.",
+    "topic": "performance",
+    "difficulty": "medium"
+  },
+  {
+    "id": "dwh_015",
+    "question": "What is dbt and what role does it play in a modern data stack?",
+    "expected_answer": "dbt (data build tool) is a SQL-based transformation framework used in ELT pipelines. It allows data engineers and analysts to write modular SQL transformations as models, manage dependencies between them, run automated data quality tests, and generate documentation. It operates inside the data warehouse and is a core tool in the modern data stack for the transformation layer.",
+    "topic": "tools",
+    "difficulty": "medium"
+  },
+  {
+    "id": "dwh_016",
+    "question": "What is the difference between SCD Type 1 and SCD Type 2?",
+    "expected_answer": "SCD Type 1 overwrites the existing value with the new value, losing all historical data — it is simple but does not preserve history. SCD Type 2 adds a new row for each change, preserving full history through surrogate keys and date-range columns (effective_start_date, effective_end_date, is_current). Type 2 is used when historical accuracy is required; Type 1 is used when only the current value matters.",
+    "topic": "scd",
+    "difficulty": "medium"
+  },
+  {
+    "id": "dwh_017",
+    "question": "What is a materialized view in a data warehouse?",
+    "expected_answer": "A materialized view stores pre-computed query results as a physical table in the data warehouse. It can be automatically or manually refreshed when the underlying data changes. Materialized views are a performance optimization technique that avoids recomputing expensive queries on every access.",
+    "topic": "performance",
+    "difficulty": "medium"
+  },
+  {
+    "id": "dwh_018",
+    "question": "What is Google BigQuery and what makes it different from traditional data warehouses?",
+    "expected_answer": "Google BigQuery is a serverless, pay-per-query cloud data warehouse on Google Cloud Platform. Unlike traditional warehouses, it separates compute and storage and scales automatically with no infrastructure to manage. Users pay for the data scanned per query rather than provisioned capacity. It supports SQL, BigQuery ML for in-database machine learning, and geospatial analysis.",
+    "topic": "cloud_warehouses",
+    "difficulty": "medium"
+  },
+  {
+    "id": "dwh_019",
+    "question": "What is data lineage and why is it important in a data warehouse?",
+    "expected_answer": "Data lineage tracks the origin and transformation path of data through the pipeline. It is a data governance practice in a data warehouse that provides visibility into how data flows from source systems through transformations, supporting data quality checks, auditing, and access control.",
+    "topic": "governance",
+    "difficulty": "medium"
+  },
+  {
+    "id": "dwh_020",
+    "question": "What is a junk dimension in data warehousing?",
+    "expected_answer": "A junk dimension is a dimension table that groups together multiple low-cardinality flags and indicator fields from a fact record into a single table. Instead of adding many boolean or categorical flag columns directly to the fact table, they are combined into one junk dimension, reducing fact table width and keeping the model clean. Examples include payment method flags, promotional indicators, or channel codes.",
+    "topic": "data_modeling",
+    "difficulty": "hard"
+  }
+]

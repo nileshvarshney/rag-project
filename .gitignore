@@ -1,0 +1,31 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyc
+.venv/
+chroma_db/
+__pycache__/
+rag/__pycache__/
+app/utils/__pycache__/
+tests/__pycache__/
+
+# Virtual environments
+venv/
+.env/
+.env
+
+# Logs
+*.log
+
+# VS Code
+.vscode/
+
+# Mac
+.DS_Store
+
+data_location/
+__pycache__/
+*.pyc
+.venv/
+.env
+chroma_db/

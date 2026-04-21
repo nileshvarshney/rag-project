@@ -1,0 +1,37 @@
+RAG (Retrieval-Augmented Generation) Overview
+
+RAG is a technique that improves LLM responses by injecting relevant
+external knowledge into the prompt at query time, rather than relying
+solely on knowledge baked into the model's weights during training.
+
+How RAG Works
+-------------
+1. Ingestion: Documents are loaded, split into chunks, converted to
+   vectors (embeddings), and stored in a vector database.
+
+2. Retrieval: When a user asks a question, the question is embedded
+   using the same model. The vector store finds the chunks whose
+   vectors are most similar (nearest neighbours) to the question vector.
+
+3. Generation: The retrieved chunks are injected into a prompt template
+   alongside the original question. The LLM uses this context to
+   generate a grounded, factual answer.
+
+Why Chunking Matters
+--------------------
+Embedding an entire document produces a single vector that averages over
+all its topics, making similarity search imprecise. Splitting into smaller
+chunks means each vector represents a focused concept, so retrieval is
+more accurate.
+
+Why Local Models Are Useful
+---------------------------
+Running Ollama locally means no data leaves your machine — important for
+private or sensitive documents. Local models also have no per-token cost,
+making experimentation cheap.
+
+ChromaDB
+--------
+ChromaDB is an open-source vector database that runs in-process or as a
+server. In persistent mode (used here) it stores vectors on disk, so
+your embedded documents survive between sessions without re-ingestion.

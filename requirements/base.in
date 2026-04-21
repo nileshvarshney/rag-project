@@ -1,0 +1,37 @@
+# Runtime dependencies — everything needed to run ingest.py, app.py, server.py
+# Compiled to base.txt by:  pip-compile requirements/base.in -o requirements/base.txt
+
+# LangChain
+langchain==0.3.14
+langchain-community==0.3.14
+langchain-ollama==0.2.3
+langchain-chroma==0.2.1
+
+# Vector store
+chromadb==0.6.3
+posthog<3.0.0          # chromadb 0.6.x telemetry is incompatible with posthog 3.x
+
+# Document loaders
+pypdf==5.1.0           # PDF support
+unstructured==0.17.2   # General document parsing
+docx2txt>=0.8          # Word (.docx) extraction
+beautifulsoup4>=4.12.0 # HTML parsing for WebBaseLoader
+lxml>=5.0.0            # Fast HTML/XML parser (used by bs4)
+
+# Retrieval
+rank_bm25==0.2.2       # BM25 keyword retrieval (required by BM25Retriever)
+
+# Graph orchestration
+langgraph>=0.2.0
+
+# Retry
+tenacity>=8.0.0
+
+# Config
+python-dotenv==1.0.1
+
+# API server
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+slowapi>=0.1.9
+python-multipart>=0.0.9   # required by FastAPI for file uploads

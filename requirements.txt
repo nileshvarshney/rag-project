@@ -1,0 +1,15 @@
+# This file is kept for backward compatibility only.
+# The canonical requirements are now split and locked under requirements/:
+#
+#   requirements/base.in   — abstract runtime deps (edit these)
+#   requirements/base.txt  — pinned runtime lock file (generated)
+#   requirements/dev.in    — abstract dev/eval deps  (edit these)
+#   requirements/dev.txt   — pinned dev lock file    (generated)
+#
+# To install:
+#   pip install -r requirements/base.txt      # production
+#   pip install -r requirements/dev.txt       # development + testing
+#
+# To re-pin after editing a .in file:
+#   make compile
+-r requirements/base.txt

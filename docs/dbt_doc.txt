@@ -1,0 +1,82 @@
+dbt (DATA BUILD TOOL)
+----------------------------------------------------------------
+ 
+2.1 What Is dbt?
+-----------------
+dbt (data build tool) is an open-source transformation framework that allows data engineers and analysts to write modular SQL transformations and manage them like software. dbt handles the T in ELT — it runs inside your data warehouse, transforming already-loaded raw data into analytics-ready models.
+ 
+Core capabilities:
+- SQL-based transformations compiled and run inside the warehouse
+- Version control for SQL models using Git
+- Automated testing of data quality
+- Auto-generated documentation and lineage graphs
+- Modular, reusable model design with ref() and source() functions
+ 
+2.2 dbt Project Structure
+---------------------------
+A typical dbt project has the following folder structure:
+ 
+  models/
+    staging/       — One-to-one models over raw source tables. Light renaming and casting only.
+    intermediate/  — Optional layer for complex joins and business logic.
+    marts/         — Final dimensional models consumed by BI tools.
+  tests/           — Custom data tests (singular tests as SQL files).
+  macros/          — Reusable Jinja/SQL functions.
+  seeds/           — Static CSV files loaded as tables.
+  snapshots/       — SCD Type 2 tracking using dbt snapshots.
+  dbt_project.yml  — Project configuration file.
+  schema.yml       — Model documentation and built-in test definitions.
+ 
+2.3 Model Materialization Types
+---------------------------------
+dbt supports four materialization strategies:
+ 
+View: The model is created as a database view. No data is stored — the query runs at read time. Best for staging models that are queried infrequently.
+ 
+Table: The model is dropped and fully recreated as a table on each run. Best for marts and final models that are queried frequently.
+ 
+Incremental: Only new or updated records are processed and inserted/merged into the existing table. Reduces run time significantly for large tables. Requires an is_incremental() filter in the model logic.
+ 
+Ephemeral: The model is not materialized at all — it is injected as a CTE into any downstream model that references it. Best for intermediate logic that does not need to be stored.
+ 
+2.4 Incremental Models
+-----------------------
+An incremental model processes only new or changed records since the last run, rather than rebuilding the entire table. This dramatically reduces compute cost and run time for large datasets.
+ 
+To build an incremental model:
+1. Set materialized = 'incremental' in the model config.
+2. Use the is_incremental() macro to filter for new records.
+3. Define the unique_key config to handle updates (upserts) instead of just inserts.
+ 
+Example incremental filter:
+  WHERE updated_at > (SELECT MAX(updated_at) FROM {{ this }})
+  -- {{ this }} refers to the existing target table
+ 
+Important gotcha: On the first run, is_incremental() evaluates to false, so the full table is built. On subsequent runs, only new records are processed. If your source data arrives out of order (late-arriving data), your incremental filter may miss records. Consider using a lookback window (e.g., subtract 3 days from the max timestamp) to catch late arrivals.
+ 
+2.5 dbt Tests
+--------------
+dbt supports two types of tests:
+ 
+Generic tests (defined in schema.yml):
+- not_null: Asserts no null values exist in the column.
+- unique: Asserts all values in the column are unique.
+- accepted_values: Asserts values are within a defined list.
+- relationships: Asserts referential integrity between tables.
+ 
+Singular tests (custom SQL files in tests/ folder):
+Write any SQL query that returns rows only when a test fails. If the query returns 0 rows, the test passes.
+ 
+Run all tests:    dbt test
+Run model tests:  dbt test --select model_name
+Run one test:     dbt test --select test_name
+ 
+2.6 Sources and the ref() Function
+------------------------------------
+Sources define raw tables from external systems in your schema.yml. Using sources instead of hardcoded table names enables source freshness checks and cleaner lineage.
+ 
+The ref() function is used to reference other dbt models. dbt uses ref() calls to automatically build the DAG (Directed Acyclic Graph) of model dependencies and determine the correct execution order.
+ 
+Example: {{ ref('stg_orders') }} — references the stg_orders staging model.
+ 
+Source freshness: dbt can check if source data is fresh by comparing a loaded_at column to a threshold. Configure with loaded_at_field and warn_after / error_after settings.

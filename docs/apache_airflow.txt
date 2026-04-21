@@ -1,0 +1,56 @@
+----------------------------------------------------------------
+SECTION 3: APACHE AIRFLOW
+----------------------------------------------------------------
+ 
+3.1 What Is Airflow?
+---------------------
+Apache Airflow is an open-source workflow orchestration platform used to author, schedule, and monitor data pipelines. Pipelines are defined as DAGs (Directed Acyclic Graphs) in Python, giving engineers full programmatic control over workflow logic.
+ 
+Core components:
+- Scheduler: Triggers DAG runs based on schedule or external events.
+- Executor: Determines how tasks are executed (LocalExecutor, CeleryExecutor, KubernetesExecutor).
+- Metadata Database: Stores DAG definitions, task states, and run history (PostgreSQL or MySQL).
+- Web UI: Visual interface for monitoring DAG runs, task logs, and triggering manual runs.
+- Workers: Processes that execute individual tasks.
+ 
+3.2 DAG Anatomy
+----------------
+A DAG (Directed Acyclic Graph) is the core abstraction in Airflow. It defines a collection of tasks and their dependencies. Key DAG parameters:
+ 
+- dag_id: Unique identifier for the DAG.
+- schedule_interval: Cron expression or preset (e.g., '@daily', '@hourly', '0 6 * * *').
+- start_date: The date from which the DAG should start scheduling runs.
+- catchup: If True, Airflow will backfill all missed runs since start_date. Default is True — set to False to avoid backfill surprises on new DAGs.
+- max_active_runs: Maximum number of concurrent DAG runs allowed at one time.
+- retries: Number of times a failed task will be retried.
+- retry_delay: Time to wait between retries.
+ 
+3.3 Common Airflow Operators
+------------------------------
+Operators define the type of work a task performs.
+ 
+PythonOperator: Executes a Python function. Most flexible operator for custom logic.
+BashOperator: Executes a Bash command or script.
+SqlOperator / BigQueryOperator / SnowflakeOperator: Executes SQL in a target database.
+DummyOperator: Placeholder task, used to group or create logical checkpoints.
+BranchPythonOperator: Conditionally routes workflow to different downstream tasks based on a Python function's return value.
+ExternalTaskSensor: Waits for a task in another DAG to complete before proceeding. Used for cross-DAG dependencies.
+FileSensor: Waits for a file to appear in a filesystem or object store before proceeding.
+ 
+3.4 Task Dependencies
+----------------------
+Task dependencies define the execution order within a DAG. Airflow uses bit-shift operators to set dependencies:
+ 
+  task_a >> task_b          — task_b runs after task_a
+  task_a >> [task_b, task_c] — task_b and task_c run in parallel after task_a
+  [task_b, task_c] >> task_d — task_d waits for both task_b and task_c
+ 
+3.5 Important Airflow Gotchas
+-------------------------------
+Catchup behavior: When catchup=True and start_date is set far in the past, Airflow will schedule and run all missed DAG runs since start_date. This can trigger hundreds of unexpected runs on a new DAG. Always set catchup=False on new DAGs unless backfilling is explicitly intended.
+ 
+Execution date vs run date: In Airflow, execution_date refers to the start of the scheduling interval being processed, not the actual wall-clock time the DAG ran. A DAG with a daily schedule running at midnight on January 2nd has an execution_date of January 1st.
+ 
+Top-level DAG code: Any Python code written at the top level of a DAG file (outside of task functions) is executed every time the Scheduler parses the DAG file — which can be every few seconds. Never put expensive operations, database connections, or API calls at the top level of a DAG file.
+ 
+XCom limitations: XComs are used to pass small values between tasks via Airflow's metadata database. They are not designed for large data — never push DataFrames, files, or large lists via XCom. For large data, write to intermediate storage (S3, GCS, database) and pass only a reference (path or ID) via XCom.

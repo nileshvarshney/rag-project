@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContextIQ — Intelligent Document Intelligence</title>
+  <link rel="icon" type="image/svg+xml" href="/ui/logo.svg"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      --navy:      #192136;
+      --navy-b:    #1f2a47;
+      --navy-t:    #8fa3c0;
+      --azure:     #2563eb;
+      --azure-d:   #1d4ed8;
+      --azure-l:   #eff6ff;
+      --azure-2:   #dbeafe;
+      --bg:        #f4f7fb;
+      --card:      #ffffff;
+      --border:    #e1eaf5;
+      --text:      #0f1e3d;
+      --muted:     #5e7191;
+    }
+
+    *, *::before, *::after { font-family: 'Inter', system-ui, sans-serif; box-sizing: border-box; }
+    [v-cloak] { display: none; }
+
+    body { background: var(--bg); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #c8d6ea; border-radius: 99px; }
+    ::-webkit-scrollbar-thumb:hover { background: #a8bedb; }
+
+    /* Message content */
+    .msg-content { white-space: pre-wrap; word-break: break-word; line-height: 1.75; }
+    .msg-content code { background: #edf2fb; color: var(--azure-d); padding: 1px 5px; border-radius: 4px; font-size: .82em; font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+    .msg-content strong { font-weight: 600; color: var(--text); }
+
+    /* Typing indicator */
+    .pulse span { animation: blink 1.4s ease-in-out infinite; }
+    .pulse span:nth-child(2) { animation-delay: .24s; }
+    .pulse span:nth-child(3) { animation-delay: .48s; }
+    @keyframes blink { 0%,100%{opacity:.15;transform:translateY(0)} 50%{opacity:1;transform:translateY(-3px)} }
+
+    /* Log terminal */
+    .log-line { font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: .76rem; line-height: 1.8; }
+
+    /* Textarea */
+    textarea { field-sizing: content; }
+
+    /* Sidebar */
+    .sidebar { background: var(--navy); }
+    .sidebar-border { border-color: rgba(255,255,255,.07); }
+    .sidebar-text { color: var(--navy-t); }
+    .nav-item { color: var(--navy-t); border-left: 2px solid transparent; transition: all .15s; }
+    .nav-item:hover { background: rgba(255,255,255,.05); color: #c8d9f0; }
+    .nav-active { background: rgba(37,99,235,.14) !important; color: #93c5fd !important; border-left: 2px solid var(--azure) !important; }
+
+    /* Cards */
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; }
+    .card-header { border-bottom: 1px solid var(--border); background: #f9fbff; border-radius: 16px 16px 0 0; }
+
+    /* Stat card hover */
+    .stat-card { transition: box-shadow .15s, transform .15s; }
+    .stat-card:hover { box-shadow: 0 4px 20px rgba(37,99,235,.1); transform: translateY(-1px); }
+
+    /* Chip */
+    .chip { transition: all .15s; border: 1px solid var(--border); color: var(--muted); }
+    .chip:hover { background: var(--azure-l); border-color: #93c5fd; color: var(--azure-d); }
+
+    /* Drop zone */
+    .drop-zone-active { border-color: var(--azure) !important; background: var(--azure-l) !important; }
+
+    /* Primary button */
+    .btn-primary { background: var(--azure); color: white; transition: background .15s, box-shadow .15s; }
+    .btn-primary:hover:not(:disabled) { background: var(--azure-d); box-shadow: 0 4px 14px rgba(37,99,235,.35); }
+    .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* Input focus */
+    .input-wrap:focus-within { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+
+    /* Source badges */
+    .badge-doc   { background: var(--azure-l); color: var(--azure-d); border: 1px solid var(--azure-2); }
+    .badge-gen   { background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
+  </style>
+</head>
+<body class="h-screen flex overflow-hidden" style="background:var(--bg);color:var(--text)">
+
+<div id="app" v-cloak class="flex w-full h-full">
+
+  <!-- ═══════════════ SIDEBAR ═══════════════ -->
+  <aside class="sidebar w-[220px] flex flex-col flex-shrink-0 select-none">
+
+    <!-- Brand -->
+    <div class="px-5 py-5 sidebar-border border-b">
+      <div class="flex items-center gap-3">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none" class="w-8 h-8 flex-shrink-0">
+          <defs>
+            <linearGradient id="lg" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#818cf8"/><stop offset="1" stop-color="#3730a3"/>
+            </linearGradient>
+            <filter id="glow"><feGaussianBlur stdDeviation="1.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <rect width="40" height="40" rx="9" fill="url(#lg)"/>
+          <rect x="1" y="1" width="38" height="19" rx="8.5" fill="white" fill-opacity="0.07"/>
+          <line x1="20" y1="8"  x2="10" y2="30" stroke="white" stroke-width="0.8" stroke-opacity="0.2" stroke-linecap="round"/>
+          <line x1="20" y1="8"  x2="30" y2="30" stroke="white" stroke-width="0.8" stroke-opacity="0.2" stroke-linecap="round"/>
+          <line x1="10" y1="30" x2="30" y2="30" stroke="white" stroke-width="0.8" stroke-opacity="0.2" stroke-linecap="round"/>
+          <line x1="20" y1="10.4" x2="20" y2="17.2" stroke="white" stroke-width="1.6" stroke-opacity="0.65" stroke-linecap="round"/>
+          <line x1="11.8" y1="28.4" x2="16.8" y2="23.2" stroke="white" stroke-width="1.6" stroke-opacity="0.65" stroke-linecap="round"/>
+          <line x1="28.2" y1="28.4" x2="23.2" y2="23.2" stroke="white" stroke-width="1.6" stroke-opacity="0.65" stroke-linecap="round"/>
+          <circle cx="20" cy="21" r="4" fill="white" filter="url(#glow)"/>
+          <circle cx="20" cy="8"  r="2.4" fill="white" fill-opacity="0.9"/>
+          <circle cx="10" cy="30" r="2.4" fill="white" fill-opacity="0.9"/>
+          <circle cx="30" cy="30" r="2.4" fill="white" fill-opacity="0.9"/>
+          <circle cx="20" cy="21" r="1.7" fill="#6366f1"/>
+        </svg>
+        <div>
+          <div class="text-[15px] font-semibold text-white tracking-tight leading-none">ContextIQ</div>
+          <div class="text-[10px] mt-0.5 leading-none font-medium" style="color:#5c7a9e">Document Intelligence</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="flex-1 px-3 py-4 space-y-0.5">
+      <button v-for="item in nav" :key="item.id" @click="page = item.id"
+        :class="['w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium nav-item',
+          page === item.id ? 'nav-active' : '']">
+        <!-- SVG icons -->
+        <span class="w-4 h-4 flex-shrink-0 opacity-80">
+          <!-- Chat icon -->
+          <svg v-if="item.id==='chat'" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"/>
+          </svg>
+          <!-- Admin icon -->
+          <svg v-if="item.id==='admin'" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
+          </svg>
+          <!-- Data Load icon -->
+          <svg v-if="item.id==='dataload'" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M5.5 13a3.5 3.5 0 01-.369-6.98 4 4 0 117.753-1.977A4.5 4.5 0 1113.5 13H11V9.413l1.293 1.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13H5.5z"/>
+            <path d="M9 13h2v5H9z"/>
+          </svg>
+        </span>
+        <span>{{ item.label }}</span>
+      </button>
+    </nav>
+
+    <!-- Footer status -->
+    <div class="px-4 py-4 sidebar-border border-t space-y-2">
+      <div class="flex items-center gap-2">
+        <span class="relative flex h-2 w-2">
+          <span v-if="sysOk" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50"></span>
+          <span :class="['relative inline-flex rounded-full h-2 w-2', sysOk ? 'bg-emerald-400' : 'bg-red-400']"></span>
+        </span>
+        <span class="text-xs font-medium" :class="sysOk ? 'text-emerald-400' : 'text-red-400'">
+          {{ sysOk ? 'System online' : 'Check system' }}
+        </span>
+      </div>
+      <div class="text-[10px] font-medium" style="color:#3d5a7a">v1.0 · Local · Private</div>
+    </div>
+  </aside>
+
+  <!-- ═══════════════ MAIN ═══════════════ -->
+  <main class="flex-1 flex flex-col overflow-hidden" style="background:var(--card)">
+
+    <!-- ══ CHAT ══ -->
+    <div v-if="page==='chat'" class="flex flex-col h-full">
+
+      <!-- Header -->
+      <div class="px-6 py-4 flex items-center justify-between flex-shrink-0" style="border-bottom:1px solid var(--border)">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#2563eb,#1d4ed8)">
+            <svg class="w-4 h-4" style="color:#fff" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-sm font-semibold text-slate-800">Ask ContextIQ</div>
+            <div class="text-xs text-slate-400">Powered by your private knowledge base</div>
+          </div>
+        </div>
+        <button @click="chatClear"
+          class="text-xs text-slate-400 hover:text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors font-medium flex items-center gap-1.5">
+          <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+          Clear
+        </button>
+      </div>
+
+      <!-- Messages -->
+      <div ref="msgBox" class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+
+        <!-- Empty state -->
+        <div v-if="chatMsgs.length === 0" class="flex flex-col items-center justify-center h-full gap-5 text-center max-w-lg mx-auto">
+          <div class="w-16 h-16 rounded-2xl flex items-center justify-center" style="background:linear-gradient(135deg,#2563eb,#1d4ed8)">
+            <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-xl font-semibold text-slate-800 mb-1.5">How can I help you?</h2>
+            <p class="text-sm text-slate-500 leading-relaxed">Ask any question and I'll search your documents to find the most relevant answer.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 justify-center mt-1">
+            <button v-for="s in chatSuggestions" :key="s"
+              @click="chatInput = s"
+              class="chip text-xs px-4 py-2 rounded-full border border-slate-200 text-slate-500 bg-white font-medium">
+              {{ s }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Message bubbles -->
+        <template v-for="(m, i) in chatMsgs" :key="i">
+
+          <!-- User -->
+          <div v-if="m.role==='user'" class="flex justify-end">
+            <div class="max-w-[72%] text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed" style="background:linear-gradient(135deg,#1e40af,#2563eb)">
+              {{ m.content }}
+            </div>
+          </div>
+
+          <!-- Assistant -->
+          <div v-if="m.role==='assistant'" class="flex gap-3 items-start">
+            <!-- AI avatar -->
+            <div class="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5" style="background:linear-gradient(135deg,#2563eb,#1d4ed8)">
+              <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/>
+              </svg>
+            </div>
+            <div class="flex-1 max-w-[80%]">
+              <div class="rounded-2xl rounded-tl-sm px-4 py-3.5 shadow-sm" style="background:#fff;border:1px solid var(--border)">
+                <!-- Thinking dots -->
+                <div v-if="m.streaming && m.content === ''" class="pulse flex gap-1.5 py-1.5 items-center">
+                  <span class="w-2 h-2 rounded-full inline-block" style="background:#93c5fd"></span>
+                  <span class="w-2 h-2 rounded-full inline-block" style="background:#60a5fa"></span>
+                  <span class="w-2 h-2 rounded-full inline-block" style="background:#3b82f6"></span>
+                </div>
+                <div v-if="m.content !== ''" class="msg-content text-sm text-slate-700" v-html="fmtMsg(m.content)"></div>
+
+                <!-- Source badge -->
+                <div v-if="!m.streaming && m.meta" class="mt-3 pt-2.5 flex items-center gap-2" style="border-top:1px solid var(--border)">
+                  <span v-if="m.meta.route === 'retrieval'"
+                    class="badge-doc inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-medium">
+                    <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
+                    </svg>
+                    From your documents
+                  </span>
+                  <span v-else
+                    class="badge-gen inline-flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-full font-medium">
+                    <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.996.306-1.95.8-2.77a5 5 0 10-5.6 0c.494.82.785 1.774.8 2.77h4z"/>
+                    </svg>
+                    General knowledge
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Error bar -->
+      <div v-if="chatError" class="mx-6 mb-2 flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 px-4 py-2.5 rounded-xl">
+        <svg class="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+        </svg>
+        {{ chatError }}
+      </div>
+
+      <!-- Input bar -->
+      <div class="px-6 py-4 flex-shrink-0" style="border-top:1px solid var(--border)">
+        <!-- KB selector -->
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-[11px] text-slate-400 font-medium">Search in:</span>
+          <select v-model="chatKb"
+            class="text-[11px] font-medium border border-slate-200 rounded-lg px-2 py-1 bg-white text-slate-600 focus:outline-none focus:ring-1 focus:ring-blue-200">
+            <option value="">All Knowledge Bases</option>
+            <option v-for="kb in chatKbs" :key="kb" :value="kb">{{ kb }}</option>
+          </select>
+        </div>
+        <div class="input-wrap flex gap-3 items-end border rounded-2xl px-4 py-3 transition-all" style="background:#fff;border-color:var(--border)">
+          <textarea
+            v-model="chatInput"
+            @keydown.enter.exact.prevent="chatSend"
+            :disabled="chatStreaming"
+            placeholder="Ask a question about your documents…"
+            rows="1"
+            class="flex-1 bg-transparent text-sm resize-none focus:outline-none text-slate-700 placeholder-slate-400 disabled:opacity-50 min-h-[22px] max-h-36 leading-relaxed"
+          ></textarea>
+          <button @click="chatSend"
+            :disabled="!chatInput.trim() || chatStreaming"
+            class="btn-primary w-8 h-8 rounded-xl text-white flex items-center justify-center flex-shrink-0">
+            <svg v-if="!chatStreaming" class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+            </svg>
+            <svg v-else class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+            </svg>
+          </button>
+        </div>
+        <p class="text-[10px] text-slate-400 mt-2 text-center">Enter to send · Shift+Enter for new line</p>
+      </div>
+    </div>
+
+    <!-- ══ ADMIN ══ -->
+    <div v-if="page==='admin'" class="flex flex-col h-full overflow-hidden">
+
+      <!-- Header -->
+      <div class="px-6 py-4 flex items-center justify-between flex-shrink-0" style="border-bottom:1px solid var(--border)">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+            <svg class="w-4 h-4 text-slate-600" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-sm font-semibold text-slate-800">System Admin</div>
+            <div class="text-xs text-slate-400">Monitor health and manage configuration</div>
+          </div>
+        </div>
+        <button @click="adminLoad" :disabled="adminLoading"
+          class="flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 transition-colors">
+          <svg :class="['w-3.5 h-3.5', adminLoading ? 'animate-spin' : '']" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+          </svg>
+          {{ adminLoading ? 'Refreshing…' : 'Refresh' }}
+        </button>
+      </div>
+
+      <!-- Tabs -->
+      <div class="flex px-6 flex-shrink-0" style="border-bottom:1px solid var(--border)">
+        <button v-for="t in adminTabs" :key="t.id" @click="adminTab=t.id"
+          :class="['px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-all',
+            adminTab===t.id ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-200']">
+          {{ t.label }}
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-6 space-y-4">
+
+        <!-- ── Health tab ── -->
+        <template v-if="adminTab==='health'">
+
+          <!-- Ollama -->
+          <div class="card shadow-sm overflow-hidden">
+            <div class="px-5 py-4 flex items-center justify-between" style="border-bottom:1px solid var(--border);background:#f9fbff">
+              <div class="flex items-center gap-2.5">
+                <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:#eff6ff">
+                  <svg class="w-3.5 h-3.5" style="color:var(--azure)" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M13 7H7v6h6V7z"/><path fill-rule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clip-rule="evenodd"/>
+                  </svg>
+                </div>
+                <span class="text-sm font-semibold text-slate-700">Ollama</span>
+              </div>
+              <span :class="['text-xs px-2.5 py-1 rounded-full font-semibold',
+                adminStatus.ollama?.ok ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100']">
+                <span :class="['inline-block w-1.5 h-1.5 rounded-full mr-1.5 mb-px', adminStatus.ollama?.ok ? 'bg-emerald-500' : 'bg-red-400']"></span>
+                {{ adminStatus.ollama?.ok ? 'Online' : 'Offline' }}
+              </span>
+            </div>
+            <div class="px-5 py-4 space-y-4">
+              <div class="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2 font-mono">{{ adminStatus.ollama?.url || '—' }}</div>
+              <div v-if="adminStatus.ollama?.ok" class="space-y-2">
+                <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Required Models</p>
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="flex items-center gap-2.5 bg-slate-50 rounded-xl px-3 py-2.5">
+                    <span :class="['w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0',
+                      adminStatus.ollama?.llm_model_ready ? 'bg-emerald-500' : 'bg-red-400']">
+                      {{ adminStatus.ollama?.llm_model_ready ? '✓' : '✗' }}
+                    </span>
+                    <div>
+                      <div class="text-[10px] font-semibold text-slate-400 uppercase">LLM</div>
+                      <code class="text-xs text-slate-700">{{ adminCfg.LLM_MODEL }}</code>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2.5 bg-slate-50 rounded-xl px-3 py-2.5">
+                    <span :class="['w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0',
+                      adminStatus.ollama?.embed_model_ready ? 'bg-emerald-500' : 'bg-red-400']">
+                      {{ adminStatus.ollama?.embed_model_ready ? '✓' : '✗' }}
+                    </span>
+                    <div>
+                      <div class="text-[10px] font-semibold text-slate-400 uppercase">Embeddings</div>
+                      <code class="text-xs text-slate-700">{{ adminCfg.EMBED_MODEL }}</code>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="adminStatus.ollama?.models?.length" class="mt-1">
+                  <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Available Models</p>
+                  <div class="flex flex-wrap gap-1.5">
+                    <code v-for="m in adminStatus.ollama.models" :key="m"
+                      class="text-[11px] px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 border border-slate-200">{{ m }}</code>
+                  </div>
+                </div>
+              </div>
+              <div v-if="!adminStatus.ollama?.ok" class="flex items-start gap-3 bg-red-50 border border-red-100 rounded-xl p-3.5">
+                <svg class="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+                <div class="text-xs text-red-700">Run <code class="bg-red-100 px-1.5 py-0.5 rounded font-mono">ollama serve</code> to start the Ollama server.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ChromaDB -->
+          <div class="card shadow-sm overflow-hidden">
+            <div class="px-5 py-4 flex items-center justify-between" style="border-bottom:1px solid var(--border);background:#f9fbff">
+              <div class="flex items-center gap-2.5">
+                <div class="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <svg class="w-3.5 h-3.5 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M3 12v3c0 1.657 3.134 3 7 3s7-1.343 7-3v-3c0 1.657-3.134 3-7 3s-7-1.343-7-3z"/>
+                    <path d="M3 7v3c0 1.657 3.134 3 7 3s7-1.343 7-3V7c0 1.657-3.134 3-7 3S3 8.657 3 7z"/>
+                    <path d="M17 5c0 1.657-3.134 3-7 3S3 6.657 3 5s3.134-3 7-3 7 1.343 7 3z"/>
+                  </svg>
+                </div>
+                <span class="text-sm font-semibold text-slate-700">ChromaDB</span>
+              </div>
+              <span :class="['text-xs px-2.5 py-1 rounded-full font-semibold',
+                adminStatus.chroma?.ok ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-600 border border-red-100']">
+                <span :class="['inline-block w-1.5 h-1.5 rounded-full mr-1.5 mb-px', adminStatus.chroma?.ok ? 'bg-emerald-500' : 'bg-red-400']"></span>
+                {{ adminStatus.chroma?.ok ? 'Ready' : 'Error' }}
+              </span>
+            </div>
+            <div class="px-5 py-4">
+              <div class="grid grid-cols-3 gap-3">
+                <div class="stat-card rounded-xl p-3.5" style="background:var(--azure-l)">
+                  <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Collection</div>
+                  <div class="font-mono text-xs font-semibold text-slate-700 truncate">{{ adminStatus.chroma?.collection || '—' }}</div>
+                </div>
+                <div class="stat-card rounded-xl p-3.5" style="background:var(--azure-l)">
+                  <div class="text-[10px] font-semibold uppercase tracking-wide mb-1" style="color:var(--muted)">Chunks</div>
+                  <div class="text-2xl font-bold" style="color:var(--azure)">{{ adminStatus.chroma?.count ?? '—' }}</div>
+                </div>
+                <div class="stat-card rounded-xl p-3.5" style="background:var(--azure-l)">
+                  <div class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Path</div>
+                  <div class="font-mono text-[11px] text-slate-600 truncate">{{ adminStatus.chroma?.path || '—' }}</div>
+                </div>
+              </div>
+              <div v-if="adminStatus.chroma?.count === 0" class="mt-3 flex items-start gap-2.5 bg-amber-50 border border-amber-100 rounded-xl p-3.5">
+                <svg class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+                <p class="text-xs text-amber-700">No chunks stored yet. Go to <strong>Data Load</strong> to ingest documents.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Documents -->
+          <div class="card shadow-sm overflow-hidden">
+            <div class="px-5 py-4 flex items-center justify-between" style="border-bottom:1px solid var(--border);background:#f9fbff">
+              <div class="flex items-center gap-2.5">
+                <div class="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <svg class="w-3.5 h-3.5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/>
+                  </svg>
+                </div>
+                <span class="text-sm font-semibold text-slate-700">Documents</span>
+              </div>
+              <span class="text-xs font-semibold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">{{ adminStatus.docs?.count || 0 }} files</span>
+            </div>
+            <div class="px-5 py-4">
+              <div class="text-[11px] text-slate-400 mb-3 font-mono bg-slate-50 px-3 py-1.5 rounded-lg">{{ adminStatus.docs?.dir || '—' }}</div>
+              <div v-if="adminStatus.docs?.files?.length" class="space-y-1">
+                <div v-for="f in adminStatus.docs.files" :key="f.name"
+                  class="flex justify-between items-center py-2 px-3 rounded-lg hover:bg-slate-50 transition-colors">
+                  <span class="text-xs font-mono text-slate-600">{{ f.name }}</span>
+                  <span class="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{{ f.size_kb }} KB</span>
+                </div>
+              </div>
+              <div v-else class="text-xs text-slate-400 text-center py-4">No documents found in docs directory.</div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ── Config tab ── -->
+        <template v-if="adminTab==='config'">
+          <div v-if="adminSaveOk"
+            class="flex items-center gap-2.5 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+            <svg class="w-4 h-4 flex-shrink-0 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            Configuration saved to <code class="font-mono bg-emerald-100 px-1.5 rounded">.env</code> — restart server to apply.
+          </div>
+          <div v-if="adminSaveErr"
+            class="flex items-center gap-2.5 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            {{ adminSaveErr }}
+          </div>
+
+          <form @submit.prevent="adminSave" class="space-y-4">
+            <div v-for="section in cfgSections" :key="section.title"
+              class="card shadow-sm overflow-hidden">
+              <div class="px-5 py-3 flex items-center justify-between card-header">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{{ section.title }}</span>
+                <span v-if="section.hint" class="text-[11px] text-slate-400">{{ section.hint }}</span>
+              </div>
+              <div class="px-5 py-4 space-y-3.5">
+                <div v-for="f in section.fields" :key="f.key" class="grid grid-cols-[200px_1fr] gap-4 items-start">
+                  <label class="text-xs font-mono font-medium text-slate-500 pt-2">{{ f.key }}</label>
+                  <div>
+                    <select v-if="f.options" v-model="adminForm[f.key]"
+                      class="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 bg-white text-slate-700 transition-shadow">
+                      <option v-for="o in f.options" :key="o" :value="o">{{ o }}</option>
+                    </select>
+                    <input v-else :type="f.type||'text'" :step="f.step" v-model="adminForm[f.key]"
+                      class="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 font-mono bg-white text-slate-700 transition-shadow" />
+                    <p v-if="f.hint" class="text-[11px] text-slate-400 mt-1.5 leading-snug">{{ f.hint }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex justify-end pt-1">
+              <button type="submit" :disabled="adminSaving"
+                class="btn-primary px-6 py-2.5 text-sm font-semibold rounded-xl flex items-center gap-2">
+                <svg v-if="adminSaving" class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                {{ adminSaving ? 'Saving…' : 'Save Configuration' }}
+              </button>
+            </div>
+          </form>
+        </template>
+
+      </div>
+    </div>
+
+    <!-- ══ DATA LOAD ══ -->
+    <div v-if="page==='dataload'" class="flex flex-col h-full overflow-hidden">
+
+      <!-- Header -->
+      <div class="px-6 py-4 border-b border-slate-100 flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+            <svg class="w-4 h-4 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M5.5 13a3.5 3.5 0 01-.369-6.98 4 4 0 117.753-1.977A4.5 4.5 0 1113.5 13H11V9.413l1.293 1.293a1 1 0 001.414-1.414l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13H5.5z"/>
+              <path d="M9 13h2v5H9z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-sm font-semibold text-slate-800">Data Load</div>
+            <div class="text-xs text-slate-400">Upload documents and build the vector knowledge base</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-6 space-y-4">
+
+        <!-- Knowledge Bases card -->
+        <div class="card shadow-sm overflow-hidden">
+          <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <span class="text-sm font-semibold text-slate-700">Knowledge Bases</span>
+              <span class="ml-2 text-[11px] text-slate-400">Organize documents by topic or department</span>
+            </div>
+            <span class="text-xs font-semibold bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">{{ dlKbs.length }} KB{{ dlKbs.length !== 1 ? 's' : '' }}</span>
+          </div>
+          <div class="px-5 py-4 space-y-3">
+            <!-- KB list -->
+            <div class="flex flex-wrap gap-2">
+              <button v-for="kb in dlKbs" :key="kb"
+                @click="dlKb = kb; dlLoadDocs(); dlLoadUrls()"
+                :class="['flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-xs font-semibold transition-all',
+                  dlKb === kb
+                    ? 'border-blue-400 bg-blue-50 text-blue-700'
+                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300']">
+                <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"/>
+                </svg>
+                {{ kb }}
+                <button v-if="kb !== 'general'" @click.stop="dlDeleteKb(kb)"
+                  class="ml-1 w-4 h-4 rounded flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all">
+                  <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                  </svg>
+                </button>
+              </button>
+            </div>
+            <!-- Create new KB -->
+            <div class="flex gap-2 pt-1">
+              <input v-model="dlNewKbName" @keydown.enter.prevent="dlCreateKb"
+                placeholder="New KB name (e.g. hr, finance, legal)"
+                class="flex-1 text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 bg-white text-slate-700 placeholder-slate-400" />
+              <button @click="dlCreateKb" :disabled="!dlNewKbName.trim()"
+                class="btn-primary px-4 py-2 text-xs font-semibold rounded-xl flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
+                </svg>
+                Create
+              </button>
+            </div>
+            <p v-if="dlKbError" class="text-xs text-red-500">{{ dlKbError }}</p>
+          </div>
+        </div>
+
+        <!-- Documents card -->
+        <div class="card shadow-sm overflow-hidden">
+          <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <span class="text-sm font-semibold text-slate-700">Source Files</span>
+              <span class="ml-2 text-[11px] font-medium px-1.5 py-0.5 rounded-md" style="background:#eff6ff;color:#1d4ed8">{{ dlKb }}</span>
+              <span class="ml-1.5 text-[11px] text-slate-400">TXT · MD · PDF · DOCX</span>
+            </div>
+            <span class="text-xs font-semibold bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">{{ dlDocs.length }} files</span>
+          </div>
+          <div class="grid grid-cols-2 divide-x divide-slate-100">
+
+            <!-- File list -->
+            <div class="px-5 py-4 min-h-[160px]">
+              <div v-if="dlDocs.length === 0" class="h-full flex flex-col items-center justify-center text-slate-400 gap-2 py-8">
+                <svg class="w-8 h-8 text-slate-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+                </svg>
+                <p class="text-xs">No documents yet</p>
+              </div>
+              <div v-else class="space-y-0.5">
+                <div v-for="f in dlDocs" :key="f.name"
+                  class="flex items-center justify-between py-2 px-2 rounded-xl hover:bg-slate-50 group transition-colors">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <span :class="['text-[9px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0',
+                      f.type==='PDF'  ? 'bg-red-100 text-red-600' :
+                      f.type==='DOCX' ? 'bg-indigo-100 text-indigo-600' :
+                      f.type==='MD'   ? 'bg-emerald-100 text-emerald-700' :
+                                        'bg-blue-100 text-blue-600']">
+                      {{ f.type }}
+                    </span>
+                    <span class="text-xs font-medium text-slate-600 truncate">{{ f.name }}</span>
+                  </div>
+                  <div class="flex items-center gap-2 flex-shrink-0">
+                    <span class="text-[11px] text-slate-400">{{ f.size_kb }} KB</span>
+                    <button @click="dlDelete(f.name)"
+                      class="w-5 h-5 rounded-md flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all">
+                      <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Upload area -->
+            <div class="px-5 py-4">
+              <div @dragover.prevent @dragenter.prevent="dlDrag=true" @dragleave.prevent="dlDrag=false" @drop.prevent="dlDrop"
+                :class="['border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer',
+                  dlDrag ? 'drop-zone-active' : 'border-slate-200 hover:border-blue-300 hover:bg-blue-50/30']">
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3" style="background:var(--azure-l)">
+                  <svg class="w-6 h-6" style="color:#60a5fa" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+                  </svg>
+                </div>
+                <p class="text-sm font-semibold text-slate-600 mb-1">Drop files here</p>
+                <p class="text-xs text-slate-400 mb-3">TXT, Markdown, PDF, or Word docs</p>
+                <label class="cursor-pointer inline-flex items-center gap-1.5 text-xs font-semibold hover:opacity-80 px-3 py-1.5 rounded-lg transition-colors" style="background:var(--azure-l);color:var(--azure-d)">
+                  <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z" clip-rule="evenodd"/>
+                  </svg>
+                  Browse files
+                  <input type="file" accept=".txt,.md,.pdf,.docx" multiple class="hidden" @change="dlPick" />
+                </label>
+              </div>
+
+              <!-- Upload queue -->
+              <div v-if="dlQueue.length" class="mt-3 space-y-1.5">
+                <div v-for="u in dlQueue" :key="u.name" class="flex items-center gap-2 text-xs bg-slate-50 rounded-lg px-3 py-2">
+                  <span :class="['w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0',
+                    u.ok ? 'bg-emerald-500' : u.err ? 'bg-red-400' : 'bg-blue-300']">
+                    <svg v-if="!u.ok && !u.err" class="w-2.5 h-2.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/>
+                      <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/>
+                    </svg>
+                    <span v-else>{{ u.ok ? '✓' : '✗' }}</span>
+                  </span>
+                  <span class="font-mono text-slate-600 flex-1 truncate">{{ u.name }}</span>
+                  <span :class="u.err ? 'text-red-500 font-medium' : u.ok ? 'text-emerald-600 font-medium' : 'text-slate-400'">
+                    {{ u.ok ? 'Uploaded' : u.err || 'Uploading…' }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Website Sources card -->
+        <div class="card shadow-sm overflow-hidden">
+          <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <div>
+              <span class="text-sm font-semibold text-slate-700">Website Sources</span>
+              <span class="ml-2 text-[11px] font-medium px-1.5 py-0.5 rounded-md" style="background:#eff6ff;color:#1d4ed8">{{ dlKb }}</span>
+              <span class="ml-1.5 text-[11px] text-slate-400">Fetched at ingest time</span>
+            </div>
+            <span class="text-xs font-semibold bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">{{ dlUrls.length }} URL{{ dlUrls.length !== 1 ? 's' : '' }}</span>
+          </div>
+          <div class="px-5 py-4 space-y-3">
+            <!-- URL input -->
+            <div class="flex gap-2">
+              <input v-model="dlUrlInput" @keydown.enter.prevent="dlAddUrl"
+                placeholder="https://example.com/page"
+                class="flex-1 text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 font-mono bg-white text-slate-700 placeholder-slate-400" />
+              <button @click="dlAddUrl" :disabled="!dlUrlInput.trim()"
+                class="btn-primary px-4 py-2 text-xs font-semibold rounded-xl flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
+                </svg>
+                Add
+              </button>
+            </div>
+            <p v-if="dlUrlError" class="text-xs text-red-500">{{ dlUrlError }}</p>
+
+            <!-- URL list -->
+            <div v-if="dlUrls.length === 0" class="text-xs text-slate-400 text-center py-4">
+              No website sources added yet. Paste a URL above to include web pages in your knowledge base.
+            </div>
+            <div v-else class="space-y-1">
+              <div v-for="entry in dlUrls" :key="entry.url"
+                class="flex items-center gap-2.5 py-2 px-3 rounded-xl hover:bg-slate-50 group transition-colors">
+                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-violet-100 text-violet-700 flex-shrink-0">URL</span>
+                <a :href="entry.url" target="_blank" rel="noopener"
+                  class="text-xs font-mono text-blue-600 hover:underline flex-1 truncate">{{ entry.url }}</a>
+                <button @click="dlRemoveUrl(entry.url)"
+                  class="w-5 h-5 rounded-md flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+                  <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ingest card -->
+        <div class="card shadow-sm overflow-hidden">
+          <div class="px-5 py-4 border-b border-slate-100">
+            <span class="text-sm font-semibold text-slate-700">Run Ingestion Pipeline</span>
+          </div>
+          <div class="px-5 py-5">
+            <div class="flex gap-5">
+
+              <!-- Mode selector -->
+              <div class="space-y-2 flex-shrink-0">
+                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wide mb-3">Ingestion Mode</p>
+                <label v-for="m in dlModes" :key="m.id"
+                  :class="['flex items-start gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all w-56',
+                    dlMode===m.id ? 'border-blue-400 bg-blue-50/60' : 'border-slate-200 hover:border-slate-300']">
+                  <input type="radio" v-model="dlMode" :value="m.id" class="mt-0.5 accent-blue-600 flex-shrink-0" />
+                  <div>
+                    <div class="text-sm font-semibold text-slate-700 mb-0.5">{{ m.label }}</div>
+                    <div class="text-[11px] text-slate-500 leading-relaxed">{{ m.desc }}</div>
+                  </div>
+                </label>
+              </div>
+
+              <!-- Run + log -->
+              <div class="flex-1 space-y-3">
+                <button @click="dlIngest" :disabled="dlIngesting"
+                  class="btn-primary w-full py-3 text-sm font-semibold rounded-xl flex items-center justify-center gap-2">
+                  <svg v-if="dlIngesting" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/>
+                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/>
+                  </svg>
+                  <svg v-else class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+                  </svg>
+                  {{ dlIngesting ? 'Ingesting documents…' : 'Start Ingestion' }}
+                </button>
+                <div class="text-xs text-slate-400 text-center">Ingesting KB: <span class="font-semibold text-blue-600">{{ dlKb }}</span> · switch KB above to ingest others</div>
+
+                <!-- Terminal log -->
+                <div v-if="dlLog.length" ref="logBox"
+                  class="bg-slate-950 rounded-xl p-4 max-h-48 overflow-y-auto">
+                  <div v-for="(l, i) in dlLog" :key="i"
+                    :class="['log-line flex items-start gap-2', l.type==='error' ? 'text-red-400' : l.type==='done' ? 'text-emerald-400' : 'text-slate-400']">
+                    <span class="flex-shrink-0 mt-0.5">{{ l.type==='done' ? '✓' : l.type==='error' ? '✗' : '›' }}</span>
+                    <span>{{ l.message }}</span>
+                  </div>
+                </div>
+
+                <!-- Post-ingest stats -->
+                <div v-if="dlStats" class="grid grid-cols-3 gap-3">
+                  <div v-for="(v, k) in dlStats" :key="k"
+                    class="stat-card rounded-xl p-3.5 text-center" style="background:var(--azure-l)">
+                    <div class="text-2xl font-bold" style="color:var(--azure)">{{ v }}</div>
+                    <div class="text-[11px] font-semibold capitalize mt-0.5" style="color:var(--muted)">{{ k }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vector Store card -->
+        <div class="card shadow-sm overflow-hidden">
+          <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <span class="text-sm font-semibold text-slate-700">Vector Store</span>
+            <button @click="dlLoadColl"
+              class="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-600 px-2.5 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
+              <svg class="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/>
+              </svg>
+              Refresh
+            </button>
+          </div>
+          <div class="px-5 py-4">
+            <div v-if="!dlColl" class="text-xs text-slate-400 text-center py-6 flex items-center justify-center gap-2">
+              <svg class="w-3.5 h-3.5 animate-spin text-slate-300" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"/>
+                <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"/>
+              </svg>
+              Loading…
+            </div>
+            <div v-else class="space-y-4">
+              <div class="grid grid-cols-3 gap-3">
+                <div class="stat-card rounded-xl p-3.5" style="background:var(--azure-l)">
+                  <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Collection</div>
+                  <div class="font-mono text-xs font-semibold text-slate-700 truncate">{{ dlColl.collection }}</div>
+                </div>
+                <div class="stat-card rounded-xl p-3.5" style="background:var(--azure-l)">
+                  <div class="text-[10px] font-bold uppercase tracking-wide mb-1" style="color:var(--muted)">Total Chunks</div>
+                  <div class="text-2xl font-bold" style="color:var(--azure)">{{ dlColl.count }}</div>
+                </div>
+                <div class="stat-card rounded-xl p-3.5" style="background:var(--azure-l)">
+                  <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Storage</div>
+                  <div class="font-mono text-[11px] text-slate-600 truncate">{{ dlColl.path }}</div>
+                </div>
+              </div>
+
+              <div v-if="Object.keys(dlColl.sources||{}).length" class="space-y-2">
+                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Chunks per Source</p>
+                <div class="space-y-2">
+                  <div v-for="(cnt, src) in dlColl.sources" :key="src" class="flex items-center gap-3">
+                    <span class="text-xs font-mono text-slate-500 w-44 truncate flex-shrink-0">{{ src }}</span>
+                    <div class="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                      <div class="h-full rounded-full transition-all" style="background:var(--azure)" :style="{width: (cnt/dlColl.count*100)+'%'}"></div>
+                    </div>
+                    <span class="text-xs font-semibold text-slate-500 w-6 text-right">{{ cnt }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="pt-4 border-t border-slate-100">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-xs font-semibold text-slate-700">Clear Collection</div>
+                    <div class="text-xs text-slate-400 mt-0.5">Permanently removes all embeddings. Re-ingest to restore.</div>
+                  </div>
+                  <button @click="dlConfirmClear=true" :disabled="dlColl.count===0"
+                    class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-40 transition-colors">
+                    Clear All
+                  </button>
+                </div>
+                <div v-if="dlConfirmClear"
+                  class="mt-3 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <p class="text-xs font-semibold text-red-800">This will delete {{ dlColl.count }} chunks.</p>
+                    <p class="text-xs text-red-600 mt-0.5">This action cannot be undone.</p>
+                  </div>
+                  <div class="flex gap-2">
+                    <button @click="dlClear" class="text-xs font-semibold px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors">Delete</button>
+                    <button @click="dlConfirmClear=false" class="text-xs font-semibold px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script>
+const { createApp, ref, reactive, onMounted, nextTick } = Vue
+
+createApp({
+  setup() {
+    const page  = ref('chat')
+    const sysOk = ref(false)
+    const nav   = [
+      { id: 'chat',     label: 'Chat' },
+      { id: 'admin',    label: 'Admin' },
+      { id: 'dataload', label: 'Data Load' },
+    ]
+
+    // ── CHAT ────────────────────────────────────────────────────────────────
+    const chatMsgs      = ref([])
+    const chatInput     = ref('')
+    const chatKb        = ref('')
+    const chatKbs       = ref([])
+    const chatStreaming  = ref(false)
+    const chatError     = ref('')
+    const msgBox        = ref(null)
+
+
+    const chatSuggestions = [
+      'What is a fact table?',
+      'Explain slowly changing dimensions.',
+      'What are the types of database joins?',
+      'How does indexing improve query performance?',
+    ]
+
+    function fmtMsg(text) {
+      return (text || '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+        .replace(/`([^`]+)`/g,'<code>$1</code>')
+        .replace(/\n/g,'<br>')
+    }
+
+    function scrollBottom() {
+      nextTick(() => { if (msgBox.value) msgBox.value.scrollTop = msgBox.value.scrollHeight })
+    }
+
+    function chatClear() { chatMsgs.value = []; chatError.value = '' }
+
+    async function chatSend() {
+      const q = chatInput.value.trim()
+      if (!q || chatStreaming.value) return
+      chatError.value  = ''
+      chatInput.value  = ''
+
+      chatMsgs.value.push({ role: 'user',      content: q, meta: null, streaming: false })
+      chatMsgs.value.push({ role: 'assistant', content: '', meta: null, streaming: true })
+      const idx = chatMsgs.value.length - 1
+      chatStreaming.value = true
+      scrollBottom()
+
+      let route = ''
+
+      try {
+        const res = await fetch('/query/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: q, kb: chatKb.value }),
+        })
+        if (!res.ok) {
+          const e = await res.json().catch(() => ({}))
+          throw new Error(e.detail || `HTTP ${res.status}`)
+        }
+
+        const reader  = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buf = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buf += decoder.decode(value, { stream: true })
+          const lines = buf.split('\n')
+          buf = lines.pop()
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue
+            let d; try { d = JSON.parse(line.slice(6)) } catch { continue }
+
+            if (d.type === 'node') {
+              if (d.node === 'route') route = d.route
+            } else if (d.type === 'token') {
+              chatMsgs.value[idx].content += d.token
+              scrollBottom()
+            } else if (d.type === 'done') {
+              chatMsgs.value[idx].meta      = { route }
+              chatMsgs.value[idx].streaming = false
+              sysOk.value = true
+            } else if (d.type === 'error') {
+              throw new Error(d.detail)
+            }
+          }
+        }
+      } catch (e) {
+        chatMsgs.value[idx].content  = 'Error: ' + e.message
+        chatMsgs.value[idx].streaming = false
+        chatError.value = e.message
+        sysOk.value = false
+      } finally {
+        chatStreaming.value = false
+        scrollBottom()
+      }
+    }
+
+    // ── ADMIN ───────────────────────────────────────────────────────────────
+    const adminTab     = ref('health')
+    const adminTabs    = [{ id: 'health', label: 'System Health' }, { id: 'config', label: 'Configuration' }]
+    const adminLoading = ref(false)
+    const adminSaving  = ref(false)
+    const adminSaveOk  = ref(false)
+    const adminSaveErr = ref('')
+    const adminStatus  = reactive({})
+    const adminCfg     = reactive({})
+    const adminForm    = reactive({})
+
+    const cfgSections = [
+      { title: 'Ollama', fields: [
+        { key: 'LLM_MODEL' }, { key: 'EMBED_MODEL' }, { key: 'OLLAMA_BASE_URL' }
+      ]},
+      { title: 'ChromaDB', fields: [
+        { key: 'CHROMA_PATH' }, { key: 'CHROMA_COLLECTION' }, { key: 'DOCS_DIR' }
+      ]},
+      { title: 'Chunking', fields: [
+        { key: 'CHUNK_SIZE', type: 'number' }, { key: 'CHUNK_OVERLAP', type: 'number' }
+      ]},
+      { title: 'Retrieval', fields: [
+        { key: 'TOP_K', type: 'number' },
+        { key: 'GRADING_ENABLED', options: ['true','false'] },
+        { key: 'SEARCH_STRATEGY', options: ['hybrid','similarity','mmr'] },
+        { key: 'BM25_WEIGHT', type: 'number', step: '0.1' },
+        { key: 'SEMANTIC_WEIGHT', type: 'number', step: '0.1' },
+      ]},
+      { title: 'Reranking', hint: 'Uses Ollama embeddings — no external models needed.', fields: [
+        { key: 'RERANKER_ENABLED', options: ['false','true'] },
+        { key: 'RERANKER_TOP_N', type: 'number' },
+      ]},
+      { title: 'Query Expansion', fields: [
+        { key: 'QUERY_EXPANSION_ENABLED', options: ['false','true'] },
+        { key: 'QUERY_EXPANSION_N', type: 'number' },
+      ]},
+      { title: 'Preprocessing', hint: 'Clean artifacts, inject section boundaries, contextualise chunks.', fields: [
+        { key: 'PREPROCESS_ENABLED', options: ['true','false'],
+          hint: 'Clean text artifacts, inject === SECTION === boundaries, prefix each chunk with [Document | KB | Section] context.' },
+      ]},
+      { title: 'Debug', fields: [
+        { key: 'VERBOSE', options: ['true','false'] }
+      ]},
+    ]
+
+    async function adminLoad() {
+      adminLoading.value = true
+      try {
+        const [sr, cr] = await Promise.all([fetch('/api/system/status'), fetch('/api/config')])
+        const s = await sr.json()
+        const c = await cr.json()
+        Object.assign(adminStatus, s)
+        Object.assign(adminCfg, c)
+        for (const [k, v] of Object.entries(c)) adminForm[k] = String(v)
+        sysOk.value = !!(s.ollama?.ok && s.chroma?.ok)
+      } catch { sysOk.value = false }
+      finally { adminLoading.value = false }
+    }
+
+    async function adminSave() {
+      adminSaving.value  = true
+      adminSaveOk.value  = false
+      adminSaveErr.value = ''
+      try {
+        const r = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ settings: adminForm }),
+        })
+        const d = await r.json()
+        if (!r.ok) throw new Error(d.detail || 'Save failed')
+        adminSaveOk.value = true
+        setTimeout(() => { adminSaveOk.value = false }, 5000)
+      } catch (e) { adminSaveErr.value = e.message }
+      finally { adminSaving.value = false }
+    }
+
+    // ── DATA LOAD ───────────────────────────────────────────────────────────
+    const dlDocs        = ref([])
+    const dlDrag        = ref(false)
+    const dlQueue       = ref([])
+    const dlMode        = ref('incremental')
+    const dlIngesting   = ref(false)
+    const dlLog         = ref([])
+    const dlStats       = ref(null)
+    const dlColl        = ref(null)
+    const dlConfirmClear = ref(false)
+    const logBox        = ref(null)
+    const dlUrls        = ref([])
+    const dlUrlInput    = ref('')
+    const dlUrlError    = ref('')
+    const dlKb          = ref('general')
+    const dlKbs         = ref([])
+    const dlNewKbName   = ref('')
+    const dlKbError     = ref('')
+
+    const dlModes = [
+      { id: 'incremental',  label: 'Incremental',  desc: 'Only embed new or changed chunks. Fast for repeated runs.' },
+      { id: 'full_rebuild', label: 'Full Rebuild',  desc: 'Re-embed everything. Use after changing chunk size or embed model.' },
+    ]
+
+    async function dlLoadKbs() {
+      try {
+        const r = await fetch('/api/kb')
+        const d = await r.json()
+        dlKbs.value = d.knowledge_bases || []
+        chatKbs.value = (d.knowledge_bases || []).filter(k => k !== 'general')
+      } catch { dlKbs.value = [] }
+    }
+
+    async function dlCreateKb() {
+      dlKbError.value = ''
+      const name = dlNewKbName.value.trim()
+      if (!name) return
+      try {
+        const r = await fetch('/api/kb', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        })
+        const d = await r.json()
+        if (!r.ok) throw new Error(d.detail || 'Failed to create KB')
+        dlNewKbName.value = ''
+        await dlLoadKbs()
+      } catch (e) { dlKbError.value = e.message }
+    }
+
+    async function dlDeleteKb(name) {
+      try {
+        await fetch('/api/kb/' + encodeURIComponent(name), { method: 'DELETE' })
+        if (dlKb.value === name) dlKb.value = 'general'
+        await dlLoadKbs()
+        await dlLoadDocs()
+        await dlLoadUrls()
+      } catch {}
+    }
+
+    async function dlLoadDocs() {
+      try {
+        const r = await fetch('/api/docs?kb=' + encodeURIComponent(dlKb.value))
+        const d = await r.json()
+        dlDocs.value = d.files || []
+      } catch { dlDocs.value = [] }
+    }
+
+    async function dlLoadColl() {
+      try {
+        const r = await fetch('/api/collection/stats')
+        dlColl.value = await r.json()
+      } catch { dlColl.value = null }
+    }
+
+    async function dlUpload(file) {
+      const entry = reactive({ name: file.name, ok: false, err: '' })
+      dlQueue.value.push(entry)
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('kb', dlKb.value)
+      try {
+        const r = await fetch('/api/docs/upload', { method: 'POST', body: fd })
+        const d = await r.json()
+        if (!r.ok) throw new Error(d.detail || 'Upload failed')
+        entry.ok = true
+        await dlLoadDocs()
+      } catch (e) { entry.err = e.message }
+    }
+
+    function dlPick(e) {
+      Array.from(e.target.files || []).forEach(dlUpload)
+      e.target.value = ''
+    }
+
+    function dlDrop(e) {
+      dlDrag.value = false
+      Array.from(e.dataTransfer.files || []).forEach(dlUpload)
+    }
+
+    async function dlDelete(name) {
+      try {
+        await fetch('/api/docs/' + encodeURIComponent(name) + '?kb=' + encodeURIComponent(dlKb.value), { method: 'DELETE' })
+        await dlLoadDocs()
+      } catch {}
+    }
+
+    async function dlIngest() {
+      dlIngesting.value = true
+      dlLog.value       = []
+      dlStats.value     = null
+
+      try {
+        const res = await fetch('/api/ingest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ full_rebuild: dlMode.value === 'full_rebuild', kb: dlKb.value === 'general' ? '' : dlKb.value }),
+        })
+        const reader  = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buf = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buf += decoder.decode(value, { stream: true })
+          const lines = buf.split('\n')
+          buf = lines.pop()
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue
+            let d; try { d = JSON.parse(line.slice(6)) } catch { continue }
+            dlLog.value.push({ type: d.type, message: d.message })
+            if (d.type === 'done' && d.stats) { dlStats.value = d.stats; await dlLoadColl() }
+            await nextTick()
+            if (logBox.value) logBox.value.scrollTop = logBox.value.scrollHeight
+          }
+        }
+      } catch (e) {
+        dlLog.value.push({ type: 'error', message: e.message })
+      } finally {
+        dlIngesting.value = false
+      }
+    }
+
+    async function dlClear() {
+      try {
+        await fetch('/api/collection', { method: 'DELETE' })
+        dlConfirmClear.value = false
+        await dlLoadColl()
+      } catch {}
+    }
+
+    async function dlLoadUrls() {
+      try {
+        const r = await fetch('/api/sources/urls?kb=' + encodeURIComponent(dlKb.value))
+        const d = await r.json()
+        dlUrls.value = d.urls || []
+      } catch { dlUrls.value = [] }
+    }
+
+    async function dlAddUrl() {
+      dlUrlError.value = ''
+      const url = dlUrlInput.value.trim()
+      if (!url) return
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        dlUrlError.value = 'URL must start with http:// or https://'
+        return
+      }
+      try {
+        const r = await fetch('/api/sources/urls?kb=' + encodeURIComponent(dlKb.value), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        })
+        const d = await r.json()
+        if (!r.ok) throw new Error(d.detail || 'Failed to add URL')
+        dlUrlInput.value = ''
+        await dlLoadUrls()
+      } catch (e) { dlUrlError.value = e.message }
+    }
+
+    async function dlRemoveUrl(url) {
+      try {
+        await fetch('/api/sources/urls?' + new URLSearchParams({ url, kb: dlKb.value }), { method: 'DELETE' })
+        await dlLoadUrls()
+      } catch {}
+    }
+
+    onMounted(async () => {
+      await Promise.all([adminLoad(), dlLoadKbs(), dlLoadDocs(), dlLoadColl(), dlLoadUrls()])
+    })
+
+    return {
+      page, sysOk, nav,
+      chatMsgs, chatInput, chatKb, chatKbs, chatStreaming, chatError, msgBox,
+      chatSuggestions, fmtMsg, chatClear, chatSend,
+      adminTab, adminTabs, adminLoading, adminSaving, adminSaveOk, adminSaveErr,
+      adminStatus, adminCfg, adminForm, cfgSections, adminLoad, adminSave,
+      dlDocs, dlDrag, dlQueue, dlMode, dlModes, dlIngesting, dlLog, dlStats,
+      dlColl, dlConfirmClear, logBox,
+      dlPick, dlDrop, dlDelete, dlIngest, dlClear, dlLoadColl, dlLoadDocs, dlLoadUrls,
+      dlUrls, dlUrlInput, dlUrlError, dlAddUrl, dlRemoveUrl,
+      dlKb, dlKbs, dlNewKbName, dlKbError, dlLoadKbs, dlCreateKb, dlDeleteKb,
+    }
+  }
+}).mount('#app')
+</script>
+</body>
+</html>

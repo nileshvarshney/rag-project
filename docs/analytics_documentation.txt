@@ -1,0 +1,393 @@
+================================================================
+ANALYTICS & DATA ENGINEERING DOCUMENTATION
+Version 1.0 | Internal Knowledge Base
+================================================================
+
+
+----------------------------------------------------------------
+SECTION 1: DATA WAREHOUSE FUNDAMENTALS
+----------------------------------------------------------------
+
+1.1 What Is a Data Warehouse?
+------------------------------
+A data warehouse is a centralized repository that stores large volumes of structured data from multiple sources, optimized for analytical queries rather than transactional processing. Unlike operational databases (OLTP), which are designed for fast read/write operations on individual records, a data warehouse (OLAP) is designed for complex queries that aggregate millions of rows.
+
+Data warehouses follow a three-layer architecture:
+- Staging Layer: Raw data ingested from source systems with minimal transformation. Acts as a landing zone.
+- Integration Layer: Cleansed, conformed, and integrated data. Business rules applied here.
+- Presentation Layer: Dimensional models exposed to analysts and BI tools.
+
+1.2 Star Schema vs Snowflake Schema
+-------------------------------------
+A star schema consists of a central fact table connected directly to multiple dimension tables. Each dimension is denormalized — all attributes are stored in a single table. This design minimizes joins and maximizes query performance, making it the preferred choice for most analytical workloads.
+
+A snowflake schema normalizes dimension tables into sub-dimensions. For example, a Product dimension might be split into Product, Category, and Subcategory tables. Snowflake schemas reduce storage redundancy and make dimension updates easier but require more joins, which can slow down queries.
+
+When to use star schema: When query speed is the priority and dimensions are stable.
+When to use snowflake schema: When dimensions are large, frequently updated, or storage is a concern.
+
+1.3 Fact Tables
+----------------
+A fact table stores quantitative measurements (facts) about a business process. Each row represents a single measurable event or transaction. Fact tables are narrow and tall — few columns, many rows.
+
+The grain of a fact table defines the level of detail of each row. For example:
+- One row per sales transaction (transaction grain)
+- One row per customer per day (periodic snapshot grain)
+- One row per order line item (line-item grain)
+
+Choosing the grain is the most critical decision in dimensional modeling. Once defined, every row must conform to that grain.
+
+Types of facts:
+- Additive facts: Can be summed across all dimensions (e.g., revenue, quantity).
+- Semi-additive facts: Can be summed across some dimensions but not all (e.g., account balance — summing across time makes no sense).
+- Non-additive facts: Cannot be summed (e.g., unit price, ratios, percentages).
+
+1.4 Dimension Tables
+---------------------
+Dimension tables provide the descriptive context for facts. They answer the who, what, where, when, and why of a business event. Dimensions are wide and short — many columns, fewer rows compared to fact tables.
+
+A surrogate key is a system-generated integer key assigned to each dimension record, independent of the source system's natural key. Surrogate keys enable:
+- Historical tracking (Slowly Changing Dimensions)
+- Handling of null or missing natural keys
+- Decoupling the warehouse from source system changes
+
+1.5 Slowly Changing Dimensions (SCD)
+--------------------------------------
+SCD describes how dimension attributes change over time and how those changes are handled.
+
+SCD Type 1 — Overwrite:
+The old value is simply replaced with the new value. No history is preserved. Use when history is not important (e.g., correcting a typo in a name).
+Example: Customer last name changes from "Smith" to "Smyth" — just update the row.
+
+SCD Type 2 — Add New Row:
+A new row is inserted with the updated attribute values. The original row is preserved. A version flag or effective date column tracks which row is current.
+Columns typically added: effective_start_date, effective_end_date, is_current (boolean).
+Use when full historical tracking is required (e.g., customer address changes).
+
+SCD Type 3 — Add New Column:
+A new column is added to store the previous value alongside the current value. Only one level of history is tracked.
+Example: Adding a previous_region column next to current_region.
+Use when only the most recent change matters.
+
+
+----------------------------------------------------------------
+SECTION 2: dbt (DATA BUILD TOOL)
+----------------------------------------------------------------
+
+2.1 What Is dbt?
+-----------------
+dbt (data build tool) is an open-source transformation framework that allows data engineers and analysts to write modular SQL transformations and manage them like software. dbt handles the T in ELT — it runs inside your data warehouse, transforming already-loaded raw data into analytics-ready models.
+
+Core capabilities:
+- SQL-based transformations compiled and run inside the warehouse
+- Version control for SQL models using Git
+- Automated testing of data quality
+- Auto-generated documentation and lineage graphs
+- Modular, reusable model design with ref() and source() functions
+
+2.2 dbt Project Structure
+---------------------------
+A typical dbt project has the following folder structure:
+
+  models/
+    staging/       — One-to-one models over raw source tables. Light renaming and casting only.
+    intermediate/  — Optional layer for complex joins and business logic.
+    marts/         — Final dimensional models consumed by BI tools.
+  tests/           — Custom data tests (singular tests as SQL files).
+  macros/          — Reusable Jinja/SQL functions.
+  seeds/           — Static CSV files loaded as tables.
+  snapshots/       — SCD Type 2 tracking using dbt snapshots.
+  dbt_project.yml  — Project configuration file.
+  schema.yml       — Model documentation and built-in test definitions.
+
+2.3 Model Materialization Types
+---------------------------------
+dbt supports four materialization strategies:
+
+View: The model is created as a database view. No data is stored — the query runs at read time. Best for staging models that are queried infrequently.
+
+Table: The model is dropped and fully recreated as a table on each run. Best for marts and final models that are queried frequently.
+
+Incremental: Only new or updated records are processed and inserted/merged into the existing table. Reduces run time significantly for large tables. Requires an is_incremental() filter in the model logic.
+
+Ephemeral: The model is not materialized at all — it is injected as a CTE into any downstream model that references it. Best for intermediate logic that does not need to be stored.
+
+2.4 Incremental Models
+-----------------------
+An incremental model processes only new or changed records since the last run, rather than rebuilding the entire table. This dramatically reduces compute cost and run time for large datasets.
+
+To build an incremental model:
+1. Set materialized = 'incremental' in the model config.
+2. Use the is_incremental() macro to filter for new records.
+3. Define the unique_key config to handle updates (upserts) instead of just inserts.
+
+Example incremental filter:
+  WHERE updated_at > (SELECT MAX(updated_at) FROM {{ this }})
+  -- {{ this }} refers to the existing target table
+
+Important gotcha: On the first run, is_incremental() evaluates to false, so the full table is built. On subsequent runs, only new records are processed. If your source data arrives out of order (late-arriving data), your incremental filter may miss records. Consider using a lookback window (e.g., subtract 3 days from the max timestamp) to catch late arrivals.
+
+2.5 dbt Tests
+--------------
+dbt supports two types of tests:
+
+Generic tests (defined in schema.yml):
+- not_null: Asserts no null values exist in the column.
+- unique: Asserts all values in the column are unique.
+- accepted_values: Asserts values are within a defined list.
+- relationships: Asserts referential integrity between tables.
+
+Singular tests (custom SQL files in tests/ folder):
+Write any SQL query that returns rows only when a test fails. If the query returns 0 rows, the test passes.
+
+Run all tests:    dbt test
+Run model tests:  dbt test --select model_name
+Run one test:     dbt test --select test_name
+
+2.6 Sources and the ref() Function
+------------------------------------
+Sources define raw tables from external systems in your schema.yml. Using sources instead of hardcoded table names enables source freshness checks and cleaner lineage.
+
+The ref() function is used to reference other dbt models. dbt uses ref() calls to automatically build the DAG (Directed Acyclic Graph) of model dependencies and determine the correct execution order.
+
+Example: {{ ref('stg_orders') }} — references the stg_orders staging model.
+
+Source freshness: dbt can check if source data is fresh by comparing a loaded_at column to a threshold. Configure with loaded_at_field and warn_after / error_after settings.
+
+
+----------------------------------------------------------------
+SECTION 3: APACHE AIRFLOW
+----------------------------------------------------------------
+
+3.1 What Is Airflow?
+---------------------
+Apache Airflow is an open-source workflow orchestration platform used to author, schedule, and monitor data pipelines. Pipelines are defined as DAGs (Directed Acyclic Graphs) in Python, giving engineers full programmatic control over workflow logic.
+
+Core components:
+- Scheduler: Triggers DAG runs based on schedule or external events.
+- Executor: Determines how tasks are executed (LocalExecutor, CeleryExecutor, KubernetesExecutor).
+- Metadata Database: Stores DAG definitions, task states, and run history (PostgreSQL or MySQL).
+- Web UI: Visual interface for monitoring DAG runs, task logs, and triggering manual runs.
+- Workers: Processes that execute individual tasks.
+
+3.2 DAG Anatomy
+----------------
+A DAG (Directed Acyclic Graph) is the core abstraction in Airflow. It defines a collection of tasks and their dependencies. Key DAG parameters:
+
+- dag_id: Unique identifier for the DAG.
+- schedule_interval: Cron expression or preset (e.g., '@daily', '@hourly', '0 6 * * *').
+- start_date: The date from which the DAG should start scheduling runs.
+- catchup: If True, Airflow will backfill all missed runs since start_date. Default is True — set to False to avoid backfill surprises on new DAGs.
+- max_active_runs: Maximum number of concurrent DAG runs allowed at one time.
+- retries: Number of times a failed task will be retried.
+- retry_delay: Time to wait between retries.
+
+3.3 Common Airflow Operators
+------------------------------
+Operators define the type of work a task performs.
+
+PythonOperator: Executes a Python function. Most flexible operator for custom logic.
+BashOperator: Executes a Bash command or script.
+SqlOperator / BigQueryOperator / SnowflakeOperator: Executes SQL in a target database.
+DummyOperator: Placeholder task, used to group or create logical checkpoints.
+BranchPythonOperator: Conditionally routes workflow to different downstream tasks based on a Python function's return value.
+ExternalTaskSensor: Waits for a task in another DAG to complete before proceeding. Used for cross-DAG dependencies.
+FileSensor: Waits for a file to appear in a filesystem or object store before proceeding.
+
+3.4 Task Dependencies
+----------------------
+Task dependencies define the execution order within a DAG. Airflow uses bit-shift operators to set dependencies:
+
+  task_a >> task_b          — task_b runs after task_a
+  task_a >> [task_b, task_c] — task_b and task_c run in parallel after task_a
+  [task_b, task_c] >> task_d — task_d waits for both task_b and task_c
+
+3.5 Important Airflow Gotchas
+-------------------------------
+Catchup behavior: When catchup=True and start_date is set far in the past, Airflow will schedule and run all missed DAG runs since start_date. This can trigger hundreds of unexpected runs on a new DAG. Always set catchup=False on new DAGs unless backfilling is explicitly intended.
+
+Execution date vs run date: In Airflow, execution_date refers to the start of the scheduling interval being processed, not the actual wall-clock time the DAG ran. A DAG with a daily schedule running at midnight on January 2nd has an execution_date of January 1st.
+
+Top-level DAG code: Any Python code written at the top level of a DAG file (outside of task functions) is executed every time the Scheduler parses the DAG file — which can be every few seconds. Never put expensive operations, database connections, or API calls at the top level of a DAG file.
+
+XCom limitations: XComs are used to pass small values between tasks via Airflow's metadata database. They are not designed for large data — never push DataFrames, files, or large lists via XCom. For large data, write to intermediate storage (S3, GCS, database) and pass only a reference (path or ID) via XCom.
+
+
+----------------------------------------------------------------
+SECTION 4: BIGQUERY
+----------------------------------------------------------------
+
+4.1 BigQuery Architecture
+---------------------------
+BigQuery is Google Cloud's fully managed, serverless data warehouse. It separates compute and storage — data is stored in Colossus (Google's distributed file system) and queries are executed by Dremel (a massively parallel query engine). This architecture means you pay for storage and queries independently.
+
+Key characteristics:
+- Serverless: No infrastructure to manage, scales automatically.
+- Columnar storage: Data is stored by column, not by row — ideal for analytical queries that scan specific columns.
+- Separation of storage and compute: Storage costs are fixed; query costs scale with data scanned.
+- Standard SQL: Supports ANSI SQL with extensions for nested and repeated fields.
+
+4.2 Partitioning
+-----------------
+Partitioning divides a table into segments based on a column value, allowing BigQuery to scan only the relevant partitions for a query. This reduces both query cost and latency.
+
+Partition types:
+- Time-unit column partitioning: Partitioned by a DATE, TIMESTAMP, or DATETIME column. Most common.
+- Ingestion-time partitioning: Partitioned by the time data was loaded (_PARTITIONTIME pseudo-column).
+- Integer range partitioning: Partitioned by an integer column with defined ranges.
+
+Partition pruning: When a query includes a filter on the partition column, BigQuery skips all non-matching partitions. This is the primary mechanism for cost control in BigQuery.
+
+Important: If you query a partitioned table without a WHERE clause on the partition column, BigQuery scans ALL partitions, resulting in a full table scan with maximum cost and latency. You can enforce partition filters by setting require_partition_filter = TRUE on the table — any query that does not include a partition filter will fail with an error.
+
+4.3 Clustering
+---------------
+Clustering sorts data within each partition by one or more columns. BigQuery uses cluster column statistics to skip blocks of data that don't match a filter, reducing bytes scanned.
+
+Clustering is most effective when:
+- You frequently filter or aggregate by the clustered column(s).
+- The clustered column has high cardinality.
+- Used alongside partitioning for maximum cost reduction.
+
+You can cluster by up to 4 columns. Clustering order matters — the first column provides the most pruning benefit.
+
+4.4 BigQuery Quotas and Limits
+--------------------------------
+Understanding BigQuery's limits is critical to avoiding production failures.
+
+Query limits:
+- Maximum query result size (cached): 10 GB
+- Maximum bytes processed per query: No hard limit, but costs scale linearly
+- Maximum number of tables per query: 1,000
+
+Table limits:
+- Maximum columns per table: 10,000
+- Maximum row size: 100 MB
+- Maximum table size: No hard limit
+
+Daily limits (default):
+- Maximum bytes processed per day (free tier): 1 TB
+- Maximum concurrent queries per project: 300
+
+Streaming insert limits:
+- Maximum rows per streaming insert request: 50,000
+- Maximum size per streaming insert request: 10 MB
+- Maximum row size for streaming: 1 MB
+
+4.5 Cost Optimization Best Practices
+--------------------------------------
+1. Always filter on partition columns to enable partition pruning.
+2. Select only the columns you need — avoid SELECT *.
+3. Use clustering on high-cardinality filter columns.
+4. Use approximate aggregation functions (APPROX_COUNT_DISTINCT) when exact counts are not required.
+5. Cache query results — repeated identical queries within 24 hours return cached results at no cost.
+6. Use partitioned tables for any table expected to exceed 1 GB.
+7. Preview data with the BigQuery UI (which does not charge) before running queries.
+
+
+----------------------------------------------------------------
+SECTION 5: DATA PIPELINE CONCEPTS
+----------------------------------------------------------------
+
+5.1 ELT vs ETL
+---------------
+ETL (Extract, Transform, Load): Data is extracted from sources, transformed in a separate compute layer (e.g., a Spark cluster), then loaded into the target warehouse. Common in legacy on-premises architectures where warehouse compute was expensive.
+
+ELT (Extract, Load, Transform): Data is extracted and loaded raw into the warehouse first, then transformed using the warehouse's own compute. This is the modern standard for cloud data warehouses (BigQuery, Snowflake, Redshift), where compute is cheap and elastic.
+
+ELT advantages:
+- Raw data is always preserved in the warehouse for reprocessing.
+- No separate transformation infrastructure to manage.
+- Transformations can be rerun at any time against the raw data.
+- dbt is the standard tool for the T in ELT.
+
+5.2 Idempotency
+----------------
+An idempotent pipeline produces the same result regardless of how many times it is run. This is a critical property for reliable data pipelines.
+
+A non-idempotent pipeline might insert duplicate rows if run twice for the same date. An idempotent pipeline uses MERGE/UPSERT logic or truncate-and-reload to ensure reruns produce identical output.
+
+Best practices for idempotency:
+- Use MERGE statements that update existing rows and insert new ones.
+- Design incremental loads with unique keys to prevent duplicates.
+- Prefer DELETE + INSERT over plain INSERT for replacing a date partition.
+- Test pipelines by running them twice and checking for duplicate rows.
+
+5.3 Data Lineage
+-----------------
+Data lineage tracks the origin and transformation history of data — from source system through every transformation step to its final form in a report or dashboard. Lineage enables:
+- Impact analysis: "If I change this source table, what downstream models are affected?"
+- Root cause analysis: "This dashboard shows wrong numbers — where in the pipeline did the error originate?"
+- Compliance and auditing: Proving where a specific data point came from.
+
+dbt automatically generates column-level and table-level lineage based on ref() and source() function calls. DataHub, Atlan, and Amundsen are common data catalog tools that provide enterprise lineage tracking.
+
+5.4 Data Contracts
+-------------------
+A data contract is a formal agreement between a data producer (team that owns a source table) and data consumers (teams that use that table) about the structure, semantics, and quality of the data. Contracts specify:
+- Schema: Column names, data types, and nullable constraints.
+- Semantics: What each column means and how it is calculated.
+- SLAs: Freshness guarantees (data available by 6 AM daily).
+- Quality rules: Null rates, uniqueness constraints, value ranges.
+
+Data contracts prevent breaking changes — producers cannot change a column name or drop a column without notifying and coordinating with all consumers.
+
+5.5 Medallion Architecture
+----------------------------
+The medallion architecture organizes data in a lakehouse into three layers, each representing increasing levels of data quality:
+
+Bronze layer (Raw): Data is ingested as-is from source systems with no transformation. Schema is inferred or fixed. All history is preserved. Equivalent to the staging layer in a traditional warehouse.
+
+Silver layer (Cleansed): Data is cleansed, deduplicated, and conformed to standard schemas. Light business rules applied. Equivalent to the integration/ODS layer.
+
+Gold layer (Curated): Aggregated, dimensional, or feature-engineered data ready for analytics and ML. Equivalent to the presentation/mart layer.
+
+This architecture is most commonly associated with Delta Lake (Databricks) but applies to any lakehouse platform.
+
+
+----------------------------------------------------------------
+SECTION 6: DATA QUALITY
+----------------------------------------------------------------
+
+6.1 Dimensions of Data Quality
+--------------------------------
+Data quality is measured across six standard dimensions:
+
+Completeness: Are all expected records and values present? Are there unexpected nulls?
+Accuracy: Does the data correctly represent the real-world entity it describes?
+Consistency: Is the same fact represented the same way across all systems?
+Timeliness: Is data available when it is needed? Does it meet freshness SLAs?
+Uniqueness: Are there duplicate records that should be unique?
+Validity: Do values conform to defined formats, ranges, and reference values?
+
+6.2 Great Expectations
+-----------------------
+Great Expectations (GX) is an open-source Python library for defining, documenting, and validating data quality rules. Core concepts:
+
+Expectation: A verifiable assertion about data (e.g., "column revenue must be greater than 0").
+Expectation Suite: A named collection of expectations for a dataset.
+Checkpoint: An executable unit that validates a batch of data against an expectation suite and saves results.
+Data Docs: Auto-generated HTML documentation showing expectation definitions and validation results.
+
+Common expectations:
+- expect_column_values_to_not_be_null
+- expect_column_values_to_be_unique
+- expect_column_values_to_be_between (min, max)
+- expect_column_values_to_be_in_set (list of valid values)
+- expect_table_row_count_to_be_between
+- expect_column_pair_values_A_to_be_greater_than_B
+
+6.3 Data Observability
+------------------------
+Data observability is the ability to understand the health of your data systems at all times, detect anomalies automatically, and identify root causes quickly. The five pillars of data observability are:
+
+Freshness: Is data being updated on schedule? Has a table gone stale?
+Volume: Has the row count changed unexpectedly? A sudden drop to zero rows is a critical alert.
+Schema: Have column names, types, or nullability changed without warning?
+Distribution: Have the statistical properties of a column (mean, null rate, cardinality) shifted?
+Lineage: Which upstream sources and downstream consumers are affected by an incident?
+
+Tools: Monte Carlo, Bigeye, Soda, and Acceldata are commercial data observability platforms. dbt tests + Airflow alerts provide basic observability for smaller teams.
+================================================================
+END OF DOCUMENT
+================================================================
